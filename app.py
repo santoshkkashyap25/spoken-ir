@@ -1,35 +1,48 @@
-import streamlit as st
+"""Streamlit multi-page entry point.
+
+The frontend is a thin HTTP client. All model and corpus logic lives in
+the FastAPI service (run separately with uvicorn).
+"""
+
+from __future__ import annotations
+
 import os
-import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+import streamlit as st
 
-from utils.logger import setup_logging
-from src.config import APP_NAME
-
-from modules import predict
-
-logger = setup_logging()
+from utils.api_client import api_base_url, check_backend_health
 
 st.set_page_config(
-    page_title=APP_NAME,
-    layout="wide"
+    page_title="TransNLP",
+    page_icon="🎤",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-PAGES = {
-    "Success Predictor": predict.app,
-    # # "Audience Insights": Insights.app,
-    # "Cultural Trend Dashboard": Trend.app,
-}
+st.title("🎤 TransNLP — Stand-up Similarity")
 
-def main_app():
-    # choice = st.sidebar.radio("Go to", list(PAGES.keys()))
+st.write(
+    "Find existing stand-up specials your draft most resembles, and explore "
+    "the topic landscape of our corpus. Similarity is computed from the "
+    "vocabulary and topic mix of your transcript against 500 scraped specials."
+)
 
-    # if choice == "Rating Predictor":
-    choice = "Success Predictor"
-    st.title(f"{APP_NAME}")
-    PAGES[choice]()
-    logger.info("Main application page loaded.")
+# Surface backend status in the sidebar so users know if the API is up.
+with st.sidebar:
+    st.header("Service status")
+    base = api_base_url()
+    st.write(f"Backend: `{base}`")
+    if check_backend_health(base):
+        st.success("Backend reachable")
+    else:
+        st.error(
+            "Backend is not reachable. Start it with:\n\n"
+            "```\nuvicorn backend.main:app --port 8000\n```"
+        )
+    st.divider()
+    st.caption("Run the backend on `:8000` and the Streamlit app on `:8501`.")
 
-if __name__ == "__main__":
-    main_app()
+st.info(
+    "Use the **sidebar navigation** to go to *Transcript Matcher* (paste a "
+    "draft) or *Topic Explorer* (browse the corpus by topic)."
+)

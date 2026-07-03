@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -15,15 +16,16 @@ pip-delete-this-directory.txt
 .pytest_cache/
 .benchmarks/
 
-
+# Notebooks
 .ipynb_checkpoints/
 
-data/raw/
+# Generated data artifacts
+data/ai/
 data/processed/processed_content_data.csv
-data/raw/transcripts/  # Directory for individual raw transcript files (e.g., .pkl)
-data/raw/scraped_and_cleaned_content_data.csv
-data/raw/profanity.txt # If this is a generated list
 
+# Scraped raw artifacts (keep transcripts/, regenerate rest)
+data/raw/scraped_and_cleaned_content_data.csv
+data/raw/transcripts/
 
 # Logs
 app_logs.log
@@ -32,8 +34,9 @@ logs/
 # Environment variables
 .env
 
-.vscode/                 # VS Code
-*.iml                    # IntelliJ IDEA modules
+# Editor
+.vscode/
+*.iml
 
 # OS generated files
 .DS_Store
@@ -44,8 +47,5 @@ ehthumbs.db
 *.swp
 *.swo
 
-# Streamlit specific
+# Streamlit
 .streamlit/
-
-modules/Insights.py
-modules/Trend.py
