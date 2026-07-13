@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 def _nltk_data_dir() -> str:
     """Return a writable NLTK data directory for the current platform."""
+    env_path = os.environ.get("NLTK_DATA")
+    if env_path:
+        os.makedirs(env_path, exist_ok=True)
+        return env_path
     path = os.path.join(tempfile.gettempdir(), "nltk_data")
     os.makedirs(path, exist_ok=True)
     return path

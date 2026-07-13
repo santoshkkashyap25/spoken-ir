@@ -12,14 +12,14 @@ from functools import lru_cache
 
 import pandas as pd
 
+from config import PROCESSED_DATA_DIR
+
 logger = logging.getLogger(__name__)
 
 
 def corpus_csv_path() -> str:
-    """Resolve the processed-content CSV path relative to the project root."""
-    here = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(here)
-    return os.path.join(project_root, "data", "processed", "processed_content_data.csv")
+    """Return the absolute path to the processed-content CSV."""
+    return str(PROCESSED_DATA_DIR / "processed_content_data.csv")
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:

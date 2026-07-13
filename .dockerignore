@@ -1,0 +1,34 @@
+# ─── Python / tooling ────────────────────────────────────────────────────────
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+.pytest_cache
+.coverage
+.hypothesis
+
+# ─── Git / editor ────────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+.vscode
+*.md
+
+# ─── Log files ───────────────────────────────────────────────────────────────
+*.log
+
+# ─── Large / generated data (bind-mounted at runtime instead) ────────────────
+data/raw
+data/ai
+data/processed
+
+# ─── Dev-only directories (not needed in production containers) ──────────────
+tests/
+scripts/
+src/
+
+# ─── Docker files themselves (no need to copy into the image) ────────────────
+Dockerfile
+docker-compose.yml
+.dockerignore

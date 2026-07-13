@@ -12,9 +12,11 @@ import logging
 import os
 import sys
 from functools import lru_cache
+from pathlib import Path
 
-# Allow running directly: `python scripts/preprocess_data.py`.
-sys.path.insert(0, ".")
+# Allow running directly from any working directory: `python scripts/preprocess_data.py`
+# scripts/preprocess_data.py → scripts/ → project root.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 

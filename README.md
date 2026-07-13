@@ -65,6 +65,8 @@ transnlp/
 │
 ├── app.py               # Streamlit entry point
 ├── config.py            # Project-level paths and constants
+├── Dockerfile           # Shared image for backend + frontend
+├── docker-compose.yml   # Runtime services (corpus mounted from host)
 └── requirements.txt
 ```
 
@@ -184,6 +186,41 @@ Then open http://localhost:8501. The home page shows a backend health indicator
 — if it's green, paste a draft on the "Transcript Matcher" page and click
 "Find similar specials."
 
+### Run with Docker (alternative)
+
+Docker runs the same two services without a local venv. The corpus pipeline
+(stages 1–3 above) still runs on the host — only the runtime app is containerized.
+
+**Prerequisites:** Docker Desktop (or Docker Engine + Compose v2) and a built
+corpus on disk (`data/processed/processed_content_data.csv` plus
+`data/ai/corpus_embeddings.npy` and `data/ai/corpus_topic_vectors.npy`).
+
+```bash
+# Build images and start backend (:8000) + frontend (:8501)
+docker compose up --build
+```
+
+Open http://localhost:8501. The frontend talks to the backend over the Compose
+network (`TRANSNLP_API_URL=http://backend:8000` is set automatically).
+
+To run in the background:
+
+```bash
+docker compose up --build -d
+docker compose logs -f    # follow logs
+docker compose down       # stop
+```
+
+**What gets mounted:** `./data/processed` and `./data/ai` are read-only volumes.
+Trained model pickles (`data/models/`) are baked into the image from the repo.
+
+**What stays local:** scraping and corpus rebuild scripts under `scripts/`.
+Re-run stages 2–3 on the host after re-scraping, then restart Compose:
+
+```bash
+docker compose restart backend
+```
+
 ### Pointing the frontend at a different backend
 
 By default the frontend expects the backend on `http://localhost:8000`. To
@@ -218,7 +255,12 @@ set TRANSNLP_API_URL=https://my-api.example.com && streamlit run app.py
 - **Frontend shows "Backend unreachable" or red status.** The backend isn't
   running, it's on a different port, or `TRANSNLP_API_URL` is pointing
   somewhere wrong. Check `curl http://localhost:8000/health` from the same
-  machine the browser is on.
+  machine the browser is on. Under Docker Compose, use `docker compose ps`
+  and `docker compose logs backend` if the health check never passes.
+
+- **Docker backend exits on startup with `FileNotFoundError`.** The corpus
+  volumes are empty or paths don't match. Build the corpus locally (step 2),
+  confirm the three artifacts exist, then `docker compose up --build` again.
 
 - **NLTK download errors on Windows.** NLTK data is written to a temp dir
   (`%TEMP%\nltk_data` on Windows, `/tmp/nltk_data` on Linux). If downloads

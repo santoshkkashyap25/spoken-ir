@@ -24,34 +24,24 @@ import pickle
 from ai import nltk_setup  # noqa: F401
 from ai.corpus import load_corpus
 from ai.nlp import identity_analyzer, identity_tokenizer, preprocess
+from config import AI_DATA_DIR, MODELS_DIR
 
 logger = logging.getLogger(__name__)
 
 
-def _ai_data_dir() -> str:
-    here = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(here)
-    path = os.path.join(project_root, "data", "ai")
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def _models_dir() -> str:
-    here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(os.path.dirname(here), "data", "models")
-
-
 def embeddings_path() -> str:
-    return os.path.join(_ai_data_dir(), "corpus_embeddings.npy")
+    AI_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    return str(AI_DATA_DIR / "corpus_embeddings.npy")
 
 
 def topic_vectors_path() -> str:
-    return os.path.join(_ai_data_dir(), "corpus_topic_vectors.npy")
+    AI_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    return str(AI_DATA_DIR / "corpus_topic_vectors.npy")
 
 
 @lru_cache(maxsize=1)
 def load_vectorizer():
-    path = os.path.join(_models_dir(), "tfidf_vectorizer.pkl")
+    path = MODELS_DIR / "tfidf_vectorizer.pkl"
     with open(path, "rb") as f:
         return pickle.load(f)
 

@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# TransNLP — Docker Compose
+#
+# Usage:
+#   docker compose up --build          # first run
+#   docker compose up                  # subsequent runs (uses cached image)
+#   docker compose down                # stop & remove containers
+#
+# Runtime data (large CSV + embeddings) are bind-mounted read-only so they
+# stay on the host and don't bloat the image.
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-build-common: &build-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: transnlp:latest          # build once, share between both services
+  restart: unless-stopped
+
+services:
+  # ── FastAPI backend ──────────────────────────────────────────────────────
+  backend:
+    <<: *build-common
+    container_name: transnlp-backend
+    command:
+      - uvicorn
+      - backend.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --workers
+      - "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Runtime corpus data — mount read-only so accidental writes are blocked.
+      - ./data/processed:/app/data/processed:ro
+      - ./data/ai:/app/data/ai:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
+      NLTK_DATA: /app/nltk_data
+      # Allow CORS from the Streamlit frontend (browser→backend).
+      # Override with your public domain in production.
+      TRANSNLP_CORS_ORIGINS: "http://localhost:8501,http://127.0.0.1:8501"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s     # NLP model loading can be slow on first boot
+
+  # ── Streamlit frontend ───────────────────────────────────────────────────
+  frontend:
+    <<: *build-common
+    container_name: transnlp-frontend
+    command:
+      - streamlit
+      - run
+      - app.py
+      - --server.port=8501
+      - --server.address=0.0.0.0
+      - --server.fileWatcherType=none
+      - --server.headless=true
+    ports:
+      - "8501:8501"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      NLTK_DATA: /app/nltk_data
+      # The frontend talks to the backend via the Docker internal network
+      # using the service name "backend".
+      TRANSNLP_API_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -17,6 +17,7 @@ import pickle
 
 from ai import nltk_setup  # noqa: F401
 from ai.corpus import load_corpus
+from config import MODELS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -32,21 +33,16 @@ TOPIC_LABELS: list[str] = [
 ]
 
 
-def _models_dir() -> str:
-    here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(os.path.dirname(here), "data", "models")
-
-
 @lru_cache(maxsize=1)
 def load_lda_model():
-    path = os.path.join(_models_dir(), "lda_model.pkl")
+    path = MODELS_DIR / "lda_model.pkl"
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
 @lru_cache(maxsize=1)
 def load_lda_dictionary():
-    path = os.path.join(_models_dir(), "lda_model_dict.pkl")
+    path = MODELS_DIR / "lda_model_dict.pkl"
     with open(path, "rb") as f:
         return pickle.load(f)
 

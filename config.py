@@ -2,20 +2,38 @@
 
 Single source of truth for paths and shared constants. Imported by both
 the scripts/ (top-level) and the ai/ + backend/ packages (via sys.path).
+
+All paths are derived from the location of this file (config.py), which
+lives at the project root. This makes the project fully relocatable — it
+works regardless of where on disk the repo is cloned, on any OS (Windows,
+macOS, Linux, Docker).
 """
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 APP_NAME = "TransNLP — Stand-up Similarity"
 
-# Data and model paths.
-_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-RAW_DATA_DIR = os.path.join(_DATA_DIR, "raw")
-PROCESSED_DATA_DIR = os.path.join(_DATA_DIR, "processed")
-MODELS_DIR = os.path.join(_DATA_DIR, "models")
+# ── Project root ───────────────────────────────────────────────────────────────
+# config.py lives at the project root, so its parent IS the project root.
+PROJECT_ROOT: Path = Path(__file__).resolve().parent
 
-# Scraping.
-SCRAPING_BASE_URL = "https://scrapsfromtheloft.com/stand-up-comedy-scripts/"
-TRANSCRIPTS_RAW_DIR = os.path.join(RAW_DATA_DIR, "transcripts")
+# ── Data directories ───────────────────────────────────────────────────────────
+DATA_DIR: Path          = PROJECT_ROOT / "data"
+RAW_DATA_DIR: Path      = DATA_DIR / "raw"
+PROCESSED_DATA_DIR: Path = DATA_DIR / "processed"
+MODELS_DIR: Path        = DATA_DIR / "models"
+AI_DATA_DIR: Path       = DATA_DIR / "ai"
+
+# ── Scraping ───────────────────────────────────────────────────────────────────
+SCRAPING_BASE_URL: str    = "https://scrapsfromtheloft.com/stand-up-comedy-scripts/"
+TRANSCRIPTS_RAW_DIR: Path = RAW_DATA_DIR / "transcripts"
+
+# ── Convenience: str versions (for libraries that don't accept Path objects) ──
+# Prefer the Path constants above in new code.
+RAW_DATA_DIR_STR: str       = str(RAW_DATA_DIR)
+PROCESSED_DATA_DIR_STR: str = str(PROCESSED_DATA_DIR)
+MODELS_DIR_STR: str         = str(MODELS_DIR)
+AI_DATA_DIR_STR: str        = str(AI_DATA_DIR)
+TRANSCRIPTS_RAW_DIR_STR: str = str(TRANSCRIPTS_RAW_DIR)

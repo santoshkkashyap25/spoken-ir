@@ -21,8 +21,10 @@ import requests
 from bs4 import BeautifulSoup
 from langdetect import detect
 
-# Allow running directly: `python scripts/scrape_data.py`.
-sys.path.insert(0, ".")
+# Allow running directly from any working directory: `python scripts/scrape_data.py`
+# scripts/scrape_data.py → scripts/ → project root.
+from pathlib import Path as _Path
+sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
 
 from config import SCRAPING_BASE_URL, RAW_DATA_DIR, TRANSCRIPTS_RAW_DIR  # noqa: E402
 

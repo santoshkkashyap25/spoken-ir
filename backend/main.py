@@ -10,9 +10,11 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 # Allow `python backend/main.py` to find the project root.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# backend/main.py → backend/ → project root (one parent up from backend/).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -60,10 +62,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — open to the Streamlit dev server. Tighten for production.
+# CORS — origins are configurable via TRANSNLP_CORS_ORIGINS (comma-separated).
+# Defaults to localhost for local development; override in docker-compose / k8s.
+_raw_origins = os.environ.get(
+    "TRANSNLP_CORS_ORIGINS",
+    "http://localhost:8501,http://127.0.0.1:8501",
+)
+_cors_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
