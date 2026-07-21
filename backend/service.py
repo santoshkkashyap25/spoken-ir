@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import math
 from typing import Optional
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
@@ -52,6 +53,7 @@ def get_health() -> dict:
     }
 
 
+@lru_cache(maxsize=128)
 def get_match(text: str, k: int) -> dict:
     """Find the k corpus specials most similar to `text`."""
     corpus = load_corpus()
@@ -108,12 +110,11 @@ def get_topics() -> dict:
     total_share = float(shares.sum()) or 1.0
 
     dominant_ratings: list[list[float]] = [[] for _ in topics.TOPIC_LABELS]
-    if "rating" in corpus.columns:
-        ratings = pd.to_numeric(corpus["rating"], errors="coerce").tolist()
-        for i, t in enumerate(dominant_idx):
-            r = ratings[i]
-            if r is not None and not (isinstance(r, float) and math.isnan(r)):
-                dominant_ratings[int(t)].append(float(r))
+    ratings = pd.to_numeric(corpus["rating"], errors="coerce").tolist()
+    for i, t in enumerate(dominant_idx):
+        r = ratings[i]
+        if r is not None and not (isinstance(r, float) and math.isnan(r)):
+            dominant_ratings[int(t)].append(float(r))
 
     out: list[TopicInfo] = []
     for i, label in enumerate(topics.TOPIC_LABELS):

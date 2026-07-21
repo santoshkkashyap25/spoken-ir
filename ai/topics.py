@@ -11,6 +11,7 @@ import os
 from functools import lru_cache
 from typing import Optional
 
+import nltk
 import numpy as np
 import pandas as pd
 import pickle
@@ -112,13 +113,14 @@ def avg_rating_for_topic(topic: str, corpus: Optional[pd.DataFrame] = None) -> O
     if topic not in TOPIC_LABELS:
         return None
     df = corpus if corpus is not None else load_corpus()
-    if topic not in df.columns or "rating" not in df.columns:
+    if "rating" not in df.columns:
         return None
-    work = df[[topic, "rating"]].copy()
-    work[topic] = pd.to_numeric(work[topic], errors="coerce").fillna(0.0)
-    work["rating"] = pd.to_numeric(work["rating"], errors="coerce")
-    is_dominant = (work[topic] == work[TOPIC_LABELS].apply(pd.to_numeric, errors="coerce").max(axis=1))
-    ratings = work.loc[is_dominant & work["rating"].notna(), "rating"]
+    # Only use topic columns that actually exist in the corpus.
+    available_topics = [t for t in TOPIC_LABELS if t in df.columns]
+    if not available_topics:
+        return None
+    dominant = df[available_topics].apply(pd.to_numeric, errors="coerce").idxmax(axis=1)
+    ratings = pd.to_numeric(df.loc[dominant == topic, "rating"], errors="coerce").dropna()
     if ratings.empty:
         return None
     return float(ratings.mean())

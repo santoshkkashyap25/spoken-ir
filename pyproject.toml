@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transnlp"
+version = "2.0.0"
+description = "Stand-up Similarity Tool"
+authors = [{name = "TransNLP"}]
+
+[tool.setuptools.packages.find]
+include = ["ai*", "backend*", "utils*"]

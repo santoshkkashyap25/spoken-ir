@@ -30,10 +30,3 @@ AI_DATA_DIR: Path       = DATA_DIR / "ai"
 SCRAPING_BASE_URL: str    = "https://scrapsfromtheloft.com/stand-up-comedy-scripts/"
 TRANSCRIPTS_RAW_DIR: Path = RAW_DATA_DIR / "transcripts"
 
-# ── Convenience: str versions (for libraries that don't accept Path objects) ──
-# Prefer the Path constants above in new code.
-RAW_DATA_DIR_STR: str       = str(RAW_DATA_DIR)
-PROCESSED_DATA_DIR_STR: str = str(PROCESSED_DATA_DIR)
-MODELS_DIR_STR: str         = str(MODELS_DIR)
-AI_DATA_DIR_STR: str        = str(AI_DATA_DIR)
-TRANSCRIPTS_RAW_DIR_STR: str = str(TRANSCRIPTS_RAW_DIR)

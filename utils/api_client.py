@@ -6,10 +6,14 @@ configurable in one place and the rest of the UI stays simple.
 
 from __future__ import annotations
 
+import logging
 import os
+import sys
 from typing import Optional
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 def api_base_url() -> str:
@@ -18,6 +22,18 @@ def api_base_url() -> str:
     Default: http://localhost:8000 (matches the README's run instructions).
     """
     return os.environ.get("TRANSNLP_API_URL", "http://localhost:8000").rstrip("/")
+
+
+def _show_error(msg: str) -> None:
+    """Log an error and surface it in Streamlit if the runtime is active.
+
+    This avoids importing streamlit at module-load time, so api_client
+    can be imported from tests or scripts without side effects.
+    """
+    logger.error(msg)
+    st = sys.modules.get("streamlit")
+    if st is not None:
+        st.error(msg)
 
 
 def check_backend_health(base: str) -> bool:
@@ -35,7 +51,7 @@ def get_topics(base: str) -> Optional[dict]:
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        st_error_console(f"/topics failed: {e}")
+        _show_error(f"/topics failed: {e}")
         return None
 
 
@@ -49,7 +65,7 @@ def get_specials(base: str, topic: str, limit: int = 20) -> Optional[dict]:
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        st_error_console(f"/specials failed: {e}")
+        _show_error(f"/specials failed: {e}")
         return None
 
 
@@ -63,15 +79,8 @@ def post_match(base: str, text: str, k: int = 5) -> Optional[dict]:
         r.raise_for_status()
         return r.json()
     except httpx.HTTPStatusError as e:
-        st_error_console(f"/match returned {e.response.status_code}: {e.response.text}")
+        _show_error(f"/match returned {e.response.status_code}: {e.response.text}")
         return None
     except Exception as e:
-        st_error_console(f"/match failed: {e}")
+        _show_error(f"/match failed: {e}")
         return None
-
-
-def st_error_console(msg: str) -> None:
-    """Tiny shim so this module doesn't import streamlit at module-load time."""
-    import streamlit as st
-
-    st.error(msg)

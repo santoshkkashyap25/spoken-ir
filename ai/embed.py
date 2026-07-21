@@ -71,9 +71,15 @@ def build_corpus_embeddings(corpus: Optional[pd.DataFrame] = None) -> np.ndarray
 
     matrix = vectorizer.transform(tokenized)
     dense = np.asarray(matrix.toarray(), dtype=np.float32)
-    np.save(embeddings_path(), dense)
-    logger.info("Saved corpus embeddings: %s shape=%s", embeddings_path(), dense.shape)
-    return dense
+    
+    # Pre-normalize for faster cosine similarity at runtime
+    norms = np.linalg.norm(dense, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    dense_normalized = dense / norms
+    
+    np.save(embeddings_path(), dense_normalized)
+    logger.info("Saved corpus embeddings: %s shape=%s", embeddings_path(), dense_normalized.shape)
+    return dense_normalized
 
 
 @lru_cache(maxsize=1)

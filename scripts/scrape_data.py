@@ -1,19 +1,26 @@
 """Scrape stand-up transcripts from scrapsfromtheloft.com.
 
-Resumable: per-transcript .pkl files in data/raw/transcripts/. Re-running
+Resumable: per-transcript .json files in data/raw/transcripts/. Re-running
 this script only fetches what's missing. After scraping, combines raw
-paragraphs into a Transcript string and runs a regex-based clean.
+paragraphs into a Transcript string.
+
+Stage 2 (transcript downloads) uses a ThreadPoolExecutor to fetch
+multiple transcripts in parallel, significantly reducing total runtime.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import pickle
+import json
 import re
 import string
 import sys
+import threading
+import time
+import random
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import pandas as pd
@@ -21,12 +28,7 @@ import requests
 from bs4 import BeautifulSoup
 from langdetect import detect
 
-# Allow running directly from any working directory: `python scripts/scrape_data.py`
-# scripts/scrape_data.py → scripts/ → project root.
-from pathlib import Path as _Path
-sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
-
-from config import SCRAPING_BASE_URL, RAW_DATA_DIR, TRANSCRIPTS_RAW_DIR  # noqa: E402
+from config import SCRAPING_BASE_URL, RAW_DATA_DIR, TRANSCRIPTS_RAW_DIR
 
 warnings.filterwarnings("ignore")
 
@@ -36,65 +38,141 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scrape_data")
 
+# Number of parallel workers for transcript downloads.
+_MAX_WORKERS: int = 4
 
-def _fetch_html(url: str) -> str | None:
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.RequestException as e:
-        logger.error("Error fetching URL %s: %s", url, e)
-        return None
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/126.0.0.0 Safari/537.36"
+)
 
-
-def scrape_links(url: str) -> list[str]:
-    logger.info("Scraping content links from %s", url)
-    html = _fetch_html(url)
-    if not html:
-        return []
-    soup = BeautifulSoup(html, "lxml")
-    section = soup.find(
-        class_="elementor-section elementor-top-section elementor-element "
-        "elementor-element-b70b8d7 elementor-section-boxed elementor-section-height-default "
-        "elementor-section-height-default"
-    )
-    if section:
-        return [a.get("href") for a in section.find_all("a")]
-    logger.warning("Specific elementor-section class not found; falling back to broader search.")
-    return [
-        a.get("href")
-        for a in soup.find_all("a", href=True)
-        if SCRAPING_BASE_URL in a.get("href")
-        and "/stand-up-comedy-scripts/" in a.get("href")
-        and a.get("href") != SCRAPING_BASE_URL
-    ]
+# Thread-local storage: each thread gets its own requests.Session so
+# connections are not shared across threads (avoids contention).
+_thread_local = threading.local()
 
 
-def scrape_tags(url: str) -> list[str]:
-    logger.info("Scraping tags (titles) from %s", url)
-    html = _fetch_html(url)
-    if not html:
-        return []
-    soup = BeautifulSoup(html, "lxml")
-    section = soup.find(
-        class_="elementor-section elementor-top-section elementor-element "
-        "elementor-element-b70b8d7 elementor-section-boxed elementor-section-height-default "
-        "elementor-section-height-default"
-    )
-    if section:
-        return [h.text.strip() for h in section.find_all("h3")]
-    logger.warning("Specific elementor-section class not found; falling back to broader search.")
-    return [h.text.strip() for h in soup.find_all("h3")]
+def _get_session() -> requests.Session:
+    """Return the per-thread requests.Session, creating one if needed."""
+    if not hasattr(_thread_local, "session"):
+        s = requests.Session()
+        s.headers.update({"User-Agent": _USER_AGENT})
+        _thread_local.session = s
+    return _thread_local.session
+
+
+def _fetch_html(url: str, retries: int = 7, backoff_factor: float = 3.0,
+                max_backoff: float = 120.0) -> str | None:
+    """Fetch a URL with exponential-backoff retries (thread-safe)."""
+    # Politeness delay: 3–6 s between every request.
+    time.sleep(random.uniform(3.0, 6.0))
+    session = _get_session()
+    for attempt in range(retries):
+        try:
+            response = session.get(url, timeout=20)
+            if response.status_code == 429:
+                # Honour the Retry-After header if the server sends one.
+                retry_after = response.headers.get("Retry-After")
+                if retry_after and retry_after.isdigit():
+                    sleep_time = int(retry_after) + random.uniform(1, 3)
+                else:
+                    sleep_time = min(backoff_factor * (2 ** attempt), max_backoff)
+                logger.warning(
+                    "429 Too Many Requests for %s. Retrying in %.1f s (attempt %d/%d)…",
+                    url, sleep_time, attempt + 1, retries,
+                )
+                time.sleep(sleep_time)
+                continue
+            response.raise_for_status()
+            return response.text
+        except requests.exceptions.RequestException as e:
+            if attempt == retries - 1:
+                logger.error("Error fetching URL %s: %s", url, e)
+                return None
+            sleep_time = min(backoff_factor * (2 ** attempt), max_backoff)
+            logger.warning(
+                "Error fetching %s (%s). Retrying in %.1f s (attempt %d/%d)…",
+                url, e, sleep_time, attempt + 1, retries,
+            )
+            time.sleep(sleep_time)
+    return None
+
+
+# Letters the site uses for its A-Z filter.
+_LETTERS: list[str] = ["#"] + [chr(c) for c in range(ord("A"), ord("Z") + 1)]
+
+
+def _is_transcript_url(href: str) -> bool:
+    """Return True if the URL looks like an individual transcript page."""
+    if not href or "scrapsfromtheloft.com" not in href:
+        return False
+    # Filter out index pages and the su_letter filter links.
+    if "su_letter=" in href:
+        return False
+    if href.rstrip("/") in [
+        "https://scrapsfromtheloft.com/comedy",
+        "https://scrapsfromtheloft.com/movies",
+        "https://scrapsfromtheloft.com/stand-up-comedy-scripts",
+    ]:
+        return False
+    # Transcripts live under /comedy/ or /movies/
+    if "/comedy/" in href or "/movies/" in href:
+        return True
+    return False
+
+
+def scrape_links_and_tags(base_url: str) -> tuple[list[str], list[str]]:
+    """Scrape all transcript links and display titles in a single pass.
+
+    Returns a tuple of (links, tags) in corresponding order.
+    """
+    seen: set[str] = set()
+    links: list[str] = []
+    href_to_title: dict[str, str] = {}
+
+    for letter in _LETTERS:
+        if letter == "#":
+            url = base_url
+        else:
+            url = f"{base_url}?su_letter={letter}"
+        logger.info("Scraping links/tags for letter '%s' from %s", letter, url)
+        html = _fetch_html(url)
+        if not html:
+            continue
+        soup = BeautifulSoup(html, "lxml")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            text = a.get_text(strip=True)
+            if _is_transcript_url(href):
+                if text and href not in href_to_title:
+                    href_to_title[href] = text
+                if href not in seen:
+                    seen.add(href)
+                    links.append(href)
+        logger.info("  → %d unique links so far", len(links))
+
+    logger.info("Total transcript links found: %d", len(links))
+
+    tags: list[str] = []
+    for link in links:
+        if link in href_to_title:
+            tags.append(href_to_title[link])
+        else:
+            # Derive a readable tag from the URL slug.
+            slug = link.rstrip("/").split("/")[-1]
+            slug = slug.replace("-transcript", "").replace("-", " ").title()
+            tags.append(slug)
+    return links, tags
 
 
 def scrape_transcript(url: str, content_id: int) -> list[str]:
-    """Fetch and pickle a single transcript. Cached on disk per content_id."""
+    """Fetch and cache a single transcript as JSON. Cached on disk per content_id."""
     os.makedirs(TRANSCRIPTS_RAW_DIR, exist_ok=True)
-    out_path = os.path.join(TRANSCRIPTS_RAW_DIR, f"{content_id}.pkl")
+    out_path = os.path.join(TRANSCRIPTS_RAW_DIR, f"{content_id}.json")
     if os.path.exists(out_path):
         logger.info("Transcript for %s already exists. Skipping.", content_id)
-        with open(out_path, "rb") as f:
-            return pickle.load(f)
+        with open(out_path, "r", encoding="utf-8") as f:
+            return json.load(f)
 
     logger.info("Scraping transcript for content ID %s from %s", content_id, url)
     html = _fetch_html(url)
@@ -102,39 +180,44 @@ def scrape_transcript(url: str, content_id: int) -> list[str]:
         return []
 
     soup = BeautifulSoup(html, "lxml")
-    content_el = soup.find(
-        class_="elementor-element elementor-element-74af9a5b elementor-widget elementor-widget-theme-post-content"
+
+    # Primary: Astra theme content wrapper used on the new site.
+    content_el = (
+        soup.find(class_="entry-content")
+        or soup.find(class_="ast-single-post-content")
     )
+
+    # Fallback 1: old Elementor class (kept for any cached pages that haven't updated).
+    if not content_el:
+        content_el = soup.find(
+            class_="elementor-element elementor-element-74af9a5b elementor-widget "
+            "elementor-widget-theme-post-content"
+        )
+
+    # Fallback 2: generic article / main element.
+    if not content_el:
+        content_el = soup.find("article") or soup.find("main") or soup.find(
+            class_=re.compile(r"content|post|article")
+        )
+
     if content_el:
         paragraphs = [p.text for p in content_el.find_all("p")]
     else:
-        # Fallback: find the main content area.
-        main = soup.find("article") or soup.find("main") or soup.find(
-            class_=re.compile(r"content|post|article")
-        )
-        paragraphs = [p.text for p in main.find_all("p")] if main else []
-        if not paragraphs:
-            logger.warning("Could not find transcript content for %s", url)
-            return []
+        logger.warning("Could not find transcript content for %s", url)
+        return []
 
-    with open(out_path, "wb") as f:
-        pickle.dump(paragraphs, f)
+    if not paragraphs:
+        logger.warning("Found content element but no <p> tags for %s", url)
+        return []
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(paragraphs, f)
     return paragraphs
 
 
 def combine_text(paragraphs: list[str]) -> str:
     return " ".join(paragraphs)
 
-
-def clean_text_content(text: str) -> str:
-    """Light clean: lowercase, strip punctuation, newlines, square brackets, and number-words."""
-    text = re.sub(r"\[.*?\]", "", text)
-    text = text.lower()
-    text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
-    text = re.sub(r"\n", "", text)
-    text = re.sub(r"[‘’“”…♪)(“”…]", "", text)
-    text = re.sub(r"\w*\d\w*", "", text)
-    return text
 
 
 def _extract_name(tag: str) -> str:
@@ -172,8 +255,7 @@ def scrape_and_clean_data(limit: int | None = None) -> pd.DataFrame:
 
     # --- Stage 1: links + tags ---
     if df.empty or "URL" not in df.columns or "Tag" not in df.columns:
-        links = scrape_links(SCRAPING_BASE_URL)
-        tags = scrape_tags(SCRAPING_BASE_URL)
+        links, tags = scrape_links_and_tags(SCRAPING_BASE_URL)
         if not links or not tags:
             logger.error("Failed to scrape links or tags. Aborting.")
             return pd.DataFrame()
@@ -187,32 +269,74 @@ def scrape_and_clean_data(limit: int | None = None) -> pd.DataFrame:
         df.to_csv(output_csv, index=False)
         logger.info("Initial links/tags saved (%d records)", len(df))
 
-    # --- Stage 2: transcripts (resumable per file) ---
-    if "Raw Transcript" not in df.columns:
-        df["Raw Transcript"] = [[]] * len(df)
+    # --- Stage 2: transcripts (parallel, resumable per file) ---
+    # Build list of (url, content_id) pairs that still need fetching.
+    to_fetch: list[tuple[str, int]] = []
+    for _, row in df.iterrows():
+        cid = int(row["S No."])
+        json_path = os.path.join(TRANSCRIPTS_RAW_DIR, f"{cid}.json")
+        if not os.path.exists(json_path):
+            to_fetch.append((row["URL"], cid))
 
-    for index, row in df.iterrows():
-        pkl_path = os.path.join(TRANSCRIPTS_RAW_DIR, f"{row['S No.']}.pkl")
-        existing = row.get("Raw Transcript")
-        if os.path.exists(pkl_path) and isinstance(existing, list) and len(existing) > 0:
-            continue
-        transcript = scrape_transcript(row["URL"], row["S No."])
-        df.at[index, "Raw Transcript"] = transcript
-        df.to_csv(output_csv, index=False)
+    if to_fetch:
+        logger.info(
+            "Stage 2: downloading %d transcripts with %d parallel workers",
+            len(to_fetch), _MAX_WORKERS,
+        )
+        done_count = 0
+        failed_count = 0
+        with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
+            futures = {
+                executor.submit(scrape_transcript, url, cid): cid
+                for url, cid in to_fetch
+            }
+            for future in as_completed(futures):
+                cid = futures[future]
+                try:
+                    result = future.result()
+                    if result:
+                        done_count += 1
+                    else:
+                        failed_count += 1
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("Transcript %s raised %s", cid, exc)
+                    failed_count += 1
+                # Progress log every 25 transcripts.
+                total = done_count + failed_count
+                if total % 25 == 0 or total == len(to_fetch):
+                    logger.info(
+                        "  Progress: %d/%d done (%d succeeded, %d failed)",
+                        total, len(to_fetch), done_count, failed_count,
+                    )
+    else:
+        logger.info("Stage 2: all transcripts already cached, nothing to fetch.")
+
+    # Reload all cached json files into the DataFrame.
+    raw_transcripts: list[list[str]] = []
+    for _, row in df.iterrows():
+        cid = int(row["S No."])
+        json_path = os.path.join(TRANSCRIPTS_RAW_DIR, f"{cid}.json")
+        if os.path.exists(json_path):
+            with open(json_path, "r", encoding="utf-8") as f:
+                raw_transcripts.append(json.load(f))
+        else:
+            raw_transcripts.append([])
+    df["Raw Transcript"] = raw_transcripts
+    df.to_csv(output_csv, index=False)
 
     df = df[df["Raw Transcript"].apply(lambda x: isinstance(x, list) and len(x) > 0)]
     df = df.reset_index(drop=True)
     logger.info("After transcript pass: %d records", len(df))
 
-    # --- Stage 3: combine + clean ---
+    # --- Stage 3: combine ---
     if "Transcript" not in df.columns:
         df["Transcript"] = df["Raw Transcript"].apply(combine_text)
         df.to_csv(output_csv, index=False)
-    df["Transcript"] = df["Transcript"].apply(clean_text_content)
+    
     df = df[df["Transcript"].str.strip() != ""]
     df = df.reset_index(drop=True)
     df.to_csv(output_csv, index=False)
-    logger.info("After cleaning: %d records", len(df))
+    logger.info("After combine: %d records", len(df))
 
     # --- Stage 4: extract Names / Title / Year from Tag ---
     if (
@@ -245,5 +369,16 @@ def scrape_and_clean_data(limit: int | None = None) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    result = scrape_and_clean_data()
+    import argparse
+    parser = argparse.ArgumentParser(description="Scrape and clean transcript data.")
+    parser.add_argument("--limit", type=int, default=None, help="Max number of links to scrape.")
+    args = parser.parse_args()
+    
+    result = scrape_and_clean_data(limit=args.limit)
     logger.info("Scraping complete: %d records", len(result))
+    if "language" in result.columns:
+        logger.info("Language breakdown: %s", result["language"].value_counts().to_dict())
+    if "Year" in result.columns:
+        logger.info("Specials missing Year: %d", result["Year"].isna().sum())
+    if "rating" in result.columns:
+        logger.info("Specials missing rating: %d", result["rating"].isna().sum())

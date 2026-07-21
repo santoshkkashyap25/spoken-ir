@@ -14,14 +14,8 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-# Allow running directly from any working directory: `python scripts/preprocess_data.py`
-# scripts/preprocess_data.py → scripts/ → project root.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import pandas as pd
-
-from ai.nlp import preprocess
-from config import PROCESSED_DATA_DIR, RAW_DATA_DIR  # noqa: E402
+from ai.nlp import preprocess, preprocess_batch
+from config import PROCESSED_DATA_DIR, RAW_DATA_DIR
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,23 +38,20 @@ def preprocess_data() -> pd.DataFrame | None:
         return None
 
     df = pd.read_csv(scraped_csv)
-    if "Transcript" not in df.columns or df["Transcript"].empty:
-        logger.error("No 'Transcript' column in scraped data.")
+    expected_cols = ["S No.", "URL", "Transcript", "Year", "Names", "Title"]
+    missing = [c for c in expected_cols if c not in df.columns]
+    if missing:
+        logger.error("Scraped data missing required columns: %s", missing)
         return None
 
     # Warm up the pipeline (downloads NLTK data, loads spaCy) before the loop.
     _pipeline()
 
     logger.info("Applying NLP pipeline to %d transcripts...", len(df))
-    df["preprocessed_content"] = df["Transcript"].apply(
-        lambda x: preprocess(x) if isinstance(x, str) and x.strip() else ""
-    )
+    texts = df["Transcript"].tolist()
+    df["preprocessed_content"] = preprocess_batch(texts)
 
-    # Coerce rating to numeric; NaN if missing.
-    if "rating" in df.columns:
-        df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
-    if "Year" in df.columns:
-        df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
+
 
     # Drop rows with no preprocessed content (corpus needs vectorizable text).
     before = len(df)

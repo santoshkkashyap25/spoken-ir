@@ -25,11 +25,7 @@ class Neighbor:
     score: float
 
 
-def _row_norms(matrix: np.ndarray) -> np.ndarray:
-    """L2 norms with a floor to avoid division by zero for empty rows."""
-    norms = np.linalg.norm(matrix, axis=1)
-    norms[norms == 0.0] = 1.0
-    return norms
+
 
 
 def cosine_top_k(
@@ -46,7 +42,7 @@ def cosine_top_k(
     if corpus_matrix.shape[0] == 0:
         return []
 
-    # Normalize both to unit length so cosine = dot product.
+    # Normalize the query, corpus is already pre-normalized
     q_norm = np.linalg.norm(query_vec)
     if q_norm == 0.0:
         # Empty query — return zero scores instead of NaNs.
@@ -54,10 +50,7 @@ def cosine_top_k(
         return [Neighbor(index=int(i), score=0.0) for i in range(k_eff)]
     q = query_vec / q_norm
 
-    c_norms = _row_norms(corpus_matrix)
-    c = corpus_matrix / c_norms[:, None]
-
-    scores = (c @ q.T).ravel()
+    scores = (corpus_matrix @ q.T).ravel()
     k_eff = min(k, scores.shape[0])
     # argpartition is O(n); the sort over the k_eff winners is O(k log k).
     candidate_idx = np.argpartition(-scores, k_eff - 1)[:k_eff]

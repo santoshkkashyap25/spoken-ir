@@ -16,6 +16,7 @@ import logging
 import re
 import string
 
+import nltk
 from ai import nltk_setup  # noqa: F401 — bootstraps NLTK data on import
 
 logger = logging.getLogger(__name__)
@@ -57,11 +58,11 @@ def lemmatize_text(text: str) -> str:
     return " ".join(_LEMMATIZER.lemmatize(t) for t in tokens)
 
 
-def filter_pos(text: str, allowed_pos=("NOUN", "ADJ", "VERB", "ADV")) -> str:
+def filter_pos(text: str, allowed_pos: tuple[str, ...] = ("NOUN", "ADJ", "VERB", "ADV")) -> str:
     """Keep tokens whose NLTK POS tag starts with one of the allowed prefixes."""
     allowed = {p[0] for p in allowed_pos}
-    tokens = word_tokenize(text)
-    tagged = __import__("nltk").pos_tag(tokens)
+    tokens = nltk.word_tokenize(text)
+    tagged = nltk.pos_tag(tokens)
     return " ".join(w for w, t in tagged if t[:1] in allowed)
 
 
@@ -91,6 +92,26 @@ def preprocess(text: str) -> str:
         spacy_out = filter_pos(lemmatize_text(cleaned))
 
     return remove_stopwords(spacy_out)
+
+
+def preprocess_batch(texts: list[str]) -> list[str]:
+    """Batch version of preprocess that uses spaCy's nlp.pipe() for speed."""
+    if _NLP is None:
+        # Fallback to serial processing
+        return [preprocess(t) for t in texts]
+
+    cleaned_texts = [clean_text(t) if isinstance(t, str) else "" for t in texts]
+    
+    # Run nlp.pipe on the batch
+    docs = _NLP.pipe(cleaned_texts, batch_size=50)
+    
+    out = []
+    for doc in docs:
+        kept = [t.lemma_ for t in doc if t.pos_ in {"NOUN", "ADJ", "VERB", "ADV"}]
+        spacy_out = " ".join(kept)
+        out.append(remove_stopwords(spacy_out))
+        
+    return out
 
 
 # --- Identity tokenizer/analyzer ---

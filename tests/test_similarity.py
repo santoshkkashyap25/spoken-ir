@@ -9,10 +9,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# Make project root importable when running `pytest` from the project dir.
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from ai.similarity import cosine_top_k, ood_score, match_strength_label, Neighbor
 

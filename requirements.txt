@@ -35,5 +35,4 @@ tqdm==4.67.1
 joblib==1.5.1
 
 # --- spaCy English model ---
-# Install separately:
-#   python -m spacy download en_core_web_sm
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

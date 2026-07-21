@@ -12,10 +12,6 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-# Allow `python backend/main.py` to find the project root.
-# backend/main.py → backend/ → project root (one parent up from backend/).
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

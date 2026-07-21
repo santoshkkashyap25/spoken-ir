@@ -23,16 +23,19 @@ def corpus_csv_path() -> str:
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Coerce known columns to the right dtypes; tolerate missing ones."""
-    if "rating" in df.columns:
-        df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
-    if "Year" in df.columns:
-        df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
-    if "preprocessed_content" not in df.columns:
-        raise ValueError(
-            "Corpus CSV is missing 'preprocessed_content'. "
-            "Run scripts/preprocess_data.py first."
-        )
+    """Coerce known columns to the right dtypes and ensure required schema."""
+    expected_cols = [
+        "S No.", "URL", "Transcript", "Year", "Names", "Title", "preprocessed_content"
+    ]
+    missing = [c for c in expected_cols if c not in df.columns]
+    if missing:
+        raise ValueError(f"Corpus CSV is missing required columns: {missing}. Run scripts/preprocess_data.py first.")
+
+    if "rating" not in df.columns:
+        df["rating"] = pd.NA
+
+    df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
+    df["Year"] = pd.to_numeric(df["Year"], errors="coerce")
     df["preprocessed_content"] = df["preprocessed_content"].fillna("").astype(str)
     return df
 
