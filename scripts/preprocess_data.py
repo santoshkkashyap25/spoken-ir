@@ -14,6 +14,11 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+# Ensure project root is importable when running directly (no pip install -e)
+_ROOT = str(Path(__file__).resolve().parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from ai.nlp import preprocess, preprocess_batch
 from config import PROCESSED_DATA_DIR, RAW_DATA_DIR
 

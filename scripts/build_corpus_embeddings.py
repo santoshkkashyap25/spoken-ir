@@ -13,6 +13,12 @@ from __future__ import annotations
 import logging
 import sys
 
+# Ensure project root is importable when running directly (no pip install -e)
+from pathlib import Path as _Path
+_ROOT = str(_Path(__file__).resolve().parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from ai.corpus import load_corpus
 from ai.embed import build_corpus_embeddings, build_corpus_topic_vectors
 

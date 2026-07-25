@@ -28,6 +28,12 @@ import requests
 from bs4 import BeautifulSoup
 from langdetect import detect
 
+# Ensure project root is importable when running directly (no pip install -e)
+from pathlib import Path as _Path
+_ROOT = str(_Path(__file__).resolve().parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from config import SCRAPING_BASE_URL, RAW_DATA_DIR, TRANSCRIPTS_RAW_DIR
 
 warnings.filterwarnings("ignore")

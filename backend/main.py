@@ -12,6 +12,11 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+# Ensure project root is importable when running directly (no pip install -e)
+_ROOT = str(Path(__file__).resolve().parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
