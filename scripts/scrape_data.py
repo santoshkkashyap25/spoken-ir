@@ -45,7 +45,8 @@ logging.basicConfig(
 logger = logging.getLogger("scrape_data")
 
 # Number of parallel workers for transcript downloads.
-_MAX_WORKERS: int = 4
+# Keep low (2) to avoid 503 rate-limiting from the target site.
+_MAX_WORKERS: int = 2
 
 _USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -173,8 +174,23 @@ def scrape_links_and_tags(base_url: str) -> tuple[list[str], list[str]]:
 
 def scrape_transcript(url: str, content_id: int) -> list[str]:
     """Fetch and cache a single transcript as JSON. Cached on disk per content_id."""
+    import pickle  # only needed for legacy migration
+
     os.makedirs(TRANSCRIPTS_RAW_DIR, exist_ok=True)
     out_path = os.path.join(TRANSCRIPTS_RAW_DIR, f"{content_id}.json")
+
+    # --- Legacy migration: convert old .pkl → .json automatically ---
+    pkl_path = os.path.join(TRANSCRIPTS_RAW_DIR, f"{content_id}.pkl")
+    if not os.path.exists(out_path) and os.path.exists(pkl_path):
+        try:
+            with open(pkl_path, "rb") as f:
+                data = pickle.load(f)
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            logger.info("Migrated %s.pkl → .json", content_id)
+        except Exception as e:
+            logger.warning("Failed to migrate %s.pkl: %s", content_id, e)
+
     if os.path.exists(out_path):
         logger.info("Transcript for %s already exists. Skipping.", content_id)
         with open(out_path, "r", encoding="utf-8") as f:
