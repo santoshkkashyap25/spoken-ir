@@ -13,17 +13,10 @@ def test_extract_name():
     assert _extract_name("Bo Burnham (2016)") == "Bo Burnham"
 
 def test_extract_title():
-    # Tag | Names | Year
-    row1 = pd.Series({
-        "CleanTag": "John Mulaney: Kid Gorgeous at Radio City",
-        "Names": "John Mulaney",
-        "Year": "2018"
-    })
-    assert _extract_title(row1) == "Kid Gorgeous at Radio City"
+    assert _extract_title(
+        "John Mulaney: Kid Gorgeous at Radio City", "John Mulaney", "2018"
+    ) == "Kid Gorgeous at Radio City"
     
-    row2 = pd.Series({
-        "CleanTag": "Dave Chappelle’s Equanimity",
-        "Names": "Dave Chappelle’s",
-        "Year": "2017"
-    })
-    assert _extract_title(row2) == "Equanimity"
+    assert _extract_title(
+        "Dave Chappelle's Equanimity", "Dave Chappelle's", "2017"
+    ) == "Equanimity"

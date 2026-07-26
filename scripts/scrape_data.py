@@ -252,11 +252,8 @@ def _extract_name(tag: str) -> str:
     return tag.split("(")[0].strip()
 
 
-def _extract_title(row: pd.Series) -> str:
-    tag = str(row.get("CleanTag") or "")
-    name = str(row.get("Names") or "")
-    year = str(row.get("Year") or "")
-    title = tag.replace(name, "", 1).replace(year, "", 1)
+def _extract_title(clean_tag: str, name: str, year: str) -> str:
+    title = clean_tag.replace(name, "", 1).replace(year, "", 1)
     return re.sub(r"[():]", "", title).strip(" -")
 
 
@@ -343,18 +340,18 @@ def scrape_and_clean_data(limit: int | None = None) -> pd.DataFrame:
                 raw_transcripts.append(json.load(f))
         else:
             raw_transcripts.append([])
-    df["Raw Transcript"] = raw_transcripts
-    df.to_csv(output_csv, index=False)
 
-    df = df[df["Raw Transcript"].apply(lambda x: isinstance(x, list) and len(x) > 0)]
+    # Use raw transcripts transiently to build Transcript, then discard.
+    df["_raw"] = raw_transcripts
+    df = df[df["_raw"].apply(lambda x: isinstance(x, list) and len(x) > 0)]
     df = df.reset_index(drop=True)
     logger.info("After transcript pass: %d records", len(df))
 
     # --- Stage 3: combine ---
     if "Transcript" not in df.columns:
-        df["Transcript"] = df["Raw Transcript"].apply(combine_text)
-        df.to_csv(output_csv, index=False)
-    
+        df["Transcript"] = df["_raw"].apply(combine_text)
+    df.drop(columns=["_raw"], inplace=True)
+
     df = df[df["Transcript"].str.strip() != ""]
     df = df.reset_index(drop=True)
     df.to_csv(output_csv, index=False)
@@ -366,10 +363,13 @@ def scrape_and_clean_data(limit: int | None = None) -> pd.DataFrame:
         or "Title" not in df.columns
         or "Year" not in df.columns
     ):
-        df["CleanTag"] = df["Tag"].str.split("|").str[0].str.strip()
-        df["Year"] = df["CleanTag"].str.extract(r"(\d{4})")
-        df["Names"] = df["CleanTag"].apply(_extract_name)
-        df["Title"] = df.apply(_extract_title, axis=1)
+        clean_tag = df["Tag"].str.split("|").str[0].str.strip()
+        df["Year"] = clean_tag.str.extract(r"(\d{4})")
+        df["Names"] = clean_tag.apply(_extract_name)
+        df["Title"] = [
+            _extract_title(ct, n, str(y or ""))
+            for ct, n, y in zip(clean_tag, df["Names"], df["Year"])
+        ]
         df.to_csv(output_csv, index=False)
         logger.info("Extracted Names/Title/Year: %d records", len(df))
 
