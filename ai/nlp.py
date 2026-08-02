@@ -43,6 +43,41 @@ from nltk.tokenize import word_tokenize  # noqa: E402
 _STOPWORDS = set(stopwords.words("english"))
 _LEMMATIZER = WordNetLemmatizer()
 
+# Common comedy profanity, slang, anatomical, transcript artifact, and generic noise words
+_PROFANITY = {
+    # Profanity
+    "fuck", "fucking", "fuckin", "fucker", "fucks", "fck", "fcking", "fcke", "fckin",
+    "motherfucker", "motherfucking", "motherfcker", "motherfckin",
+    "shit", "bullshit",
+    "bitch", "bitches", "btch",
+    "ass", "asshole", "assholes",
+    "dick", "dicks", "cock", "pussy", "cunt", "tit", "tits", "penis", "vagina",
+    "goddamn", "damn",
+    "nigga", "niggas", "nigger", "ngga",
+    
+    # Anatomical / Crude
+    "ball", "balls", "fart", "farts", "blow", "suck",
+    
+    # Filler / Slang
+    "wan", "na", "gonna", "gotta", "lemme", "gimme", "yeah", "yes", "no", "oh", "uh", "um", "like",
+    "dude", "bro", "mate", "mum", "bloke", "guy", "man", "sort", "quite", "g", "n", "l", "e", "c",
+    
+    # Transcript Artifacts
+    "laughter", "applause", "cheer", "chuckle", "applaud", "voice", "music", "playing",
+    
+    # Italian/Foreign leaks
+    "perch", "sono", "essere", "sapete", "bambini", "di", "era", "alla", "fare", "quando",
+
+    # Ultra-Common Family Terms (blurring topics)
+    "mom", "wife", "mother", "son", "parent", "child", "brother", "husband", "boyfriend", "daughter", "daddy", "mama",
+
+    # Meta-Comedy & Performance
+    "comedy", "comedian", "standup", "movie", "film", "audience", "applauding", "write", "song", "picture",
+
+    # Abstract Verbs & General Noise
+    "course", "moment", "fact", "true", "realize", "due", "anymore", "high", "mad", "lovely", "speak", "learn", "stick", "sex", "gay",
+}
+
 
 def clean_text(text: str) -> str:
     """Lowercase, strip punctuation and non-alphabetic characters."""
@@ -67,9 +102,9 @@ def filter_pos(text: str, allowed_pos: tuple[str, ...] = ("NOUN", "ADJ", "VERB",
 
 
 def remove_stopwords(text: str) -> str:
-    """Drop English stopwords."""
+    """Drop English stopwords and common profanity."""
     tokens = word_tokenize(text)
-    return " ".join(t for t in tokens if t not in _STOPWORDS)
+    return " ".join(t for t in tokens if t not in _STOPWORDS and t not in _PROFANITY)
 
 
 def preprocess(text: str) -> str:

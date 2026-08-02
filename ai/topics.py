@@ -24,13 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 TOPIC_LABELS: list[str] = [
-    "Culture",
-    "UK",
-    "Crimes",
-    "Situational",
-    "Immigrants",
-    "Relationships",
-    "Politics",
+    "Social Media & Lifestyle",
+    "Law, Crime & Society",
+    "Health & Emotional Struggles",
+    "Dating, Marriage & Parties",
+    "Politics, Police & Religion",
+    "Personal Identity & Fights",
+    "Stage Life & Celebrities",
+    "Home Life & Habits",
+    "Trump, Culture & Nature",
+    "Food, Drinks & Cultures",
+    "Sports, Drugs & Religion",
+    "Nationalism & Weddings",
+    "War & Travel",
+    "Relationships & Guns",
+    "Nightlife & Fights",
 ]
 
 
