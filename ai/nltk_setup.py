@@ -25,12 +25,7 @@ def _nltk_data_dir() -> str:
 
 
 _REQUIRED = {
-    "punkt": "tokenizers/punkt",
-    "punkt_tab": "tokenizers/punkt_tab",
     "stopwords": "corpora/stopwords",
-    "wordnet": "corpora/wordnet",
-    "averaged_perceptron_tagger": "taggers/averaged_perceptron_tagger",
-    "averaged_perceptron_tagger_eng": "taggers/averaged_perceptron_tagger_eng",
 }
 
 
@@ -40,18 +35,17 @@ def setup_nltk_data() -> None:
     os.environ["NLTK_DATA"] = data_dir
     if data_dir not in nltk.data.path:
         nltk.data.path.append(data_dir)
-    logger.info("NLTK_DATA set to: %s", data_dir)
 
     for package, test_path in _REQUIRED.items():
         try:
             nltk.data.find(test_path)
             logger.info("NLTK resource found: %s", package)
-        except LookupError:
+        except Exception:
             logger.info("Downloading missing NLTK resource: %s", package)
             try:
                 nltk.download(package, download_dir=data_dir, quiet=True)
                 logger.info("Downloaded: %s", package)
-            except Exception as e:  # noqa: BLE001 — NLTK raises broad exceptions
+            except Exception as e:  # noqa: BLE001
                 logger.error("Failed to download %s: %s", package, e)
 
 

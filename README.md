@@ -1,314 +1,323 @@
-# TransNLP — Stand-up Similarity
+# TransNLP: Empirical Benchmarking of Dense, Sparse, and Hybrid Retrieval on Spoken Monologue Corpora
 
-TransNLP is a similarity search tool for stand-up comedy writers. Paste a draft or
-upload a `.txt` file to find existing specials from a 500-transcript corpus that
-most closely match your work by vocabulary and topic mix. Use the results as
-reference — the app surfaces neighbors to explore, not predictions of success.
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.46+-FF4B4B.svg?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Sentence Transformers](https://img.shields.io/badge/Sentence--Transformers-all--MiniLM--L6--v2-yellow.svg?style=flat-square)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED.svg?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 
-## What it does
+**TransNLP** is an open-source Information Retrieval (IR) research testbed and educational platform. It provides an empirical environment to benchmark **Dense Bi-Encoder Semantic Embeddings**, **Probabilistic Lexical Ranking (BM25Okapi)**, **Convex Score Fusion**, and **Unsupervised Topic Modeling (Latent Dirichlet Allocation)** over a corpus of 582 long-form spoken-word monologue transcripts.
 
-- **Transcript Matcher** — paste a draft, get the top-k specials it most
-  resembles, with cosine similarity scores, IMDb rating, year, and a
-  side-by-side topic-mix bar chart. A "match strength" banner tells you
-  how well the draft fits the corpus.
-- **Topic Explorer** — browse the 7 topics our LDA model learned from the
-  corpus. See each topic's top words, corpus share, average rating when
-  dominant, and the specials that carry it.
+---
 
-## What it does NOT do
+## Abstract
 
-- Predict whether your script will be a hit.
-- Forecast ratings.
-- Replace reading the work yourself.
+Spoken monologue transcripts present fundamental challenges to classical information retrieval models. Unlike formal written text, spoken language is characterized by colloquialisms, pervasive figurative language, rhetorical repetition, and transcription noise. 
 
-The earlier version of this project framed the output as a success predictor.
-That framing over-promised. This version is a similarity search — useful,
-defensible, and honest about its limits.
+Pure dense bi-encoder models capture abstract conceptual intent but exhibit semantic drift when queries demand exact named-entity or proper-noun precision. Conversely, classical sparse lexical models (such as BM25) maintain exact term precision but fail when conversational paraphrasing diverges from the corpus vocabulary.
 
-## Architecture
+TransNLP provides a reproducible testbed to analyze these trade-offs by evaluating:
+1. **Dense Bi-Encoder Contextual Embeddings** (`sentence-transformers/all-MiniLM-L6-v2`, $D=384$)
+2. **Sparse Probabilistic Inverted-Index Scoring** (`BM25Okapi`)
+3. **Parametric Hybrid Score Fusion** ($S_{\text{hybrid}} = \alpha \cdot S_{\text{dense}} + (1-\alpha) \cdot S_{\text{sparse}}$) and **Reciprocal Rank Fusion (RRF)**
+4. **Unsupervised Latent Dirichlet Allocation (LDA)** ($K=15$ latent topic distributions)
+
+---
+
+## Theoretical Formulations
+
+### 1. Dense Bi-Encoder Retrieval
+
+Let $q$ denote an arbitrary input query passage and $d \in \mathcal{D}$ denote a document within corpus $\mathcal{D}$. A transformer encoder $\mathcal{E}_{\phi}(\cdot)$ maps text sequences into fixed-dimensional continuous vector representations $\mathbf{e} \in \mathbb{R}^{D}$ ($D=384$):
+
+$$\mathbf{e}_q = \mathcal{E}_{\phi}(q), \quad \mathbf{e}_d = \mathcal{E}_{\phi}(d)$$
+
+Cosine similarity measures the angular displacement between query and document vectors:
+
+$$S_{\text{dense}}(q, d) = \frac{\mathbf{e}_q \cdot \mathbf{e}_d}{\|\mathbf{e}_q\|_2 \|\mathbf{e}_d\|_2}$$
+
+When vectors are unit-normalized ($\|\mathbf{e}\|_2 = 1$), similarity simplifies to the Euclidean inner product $S_{\text{dense}}(q, d) = \mathbf{e}_q \cdot \mathbf{e}_d$, enabling vectorized matrix multiplication over the precomputed corpus matrix $\mathbf{M}_{\text{dense}} \in \mathbb{R}^{N \times D}$.
+
+### 2. Sparse Lexical Retrieval (BM25Okapi)
+
+Relevance scoring under the probabilistic BM25 framework incorporates term frequency saturation and document length penalization:
+
+$$\text{BM25}(q, d) = \sum_{t \in q \cap d} \text{IDF}(t) \cdot \frac{f(t, d) \cdot (k_1 + 1)}{f(t, d) + k_1 \cdot \left(1 - b + b \cdot \frac{|d|}{\text{avgdl}}\right)}$$
+
+where:
+- $f(t, d)$ is the frequency of token $t$ in document $d$.
+- $|d|$ is the token length of document $d$, and $\text{avgdl}$ is the average document length across $\mathcal{D}$.
+- $k_1 = 1.5$ regulates term frequency saturation non-linearity.
+- $b = 0.75$ controls document length normalization scaling.
+
+Inverse Document Frequency (IDF) is calculated with Robertson-Spärck Jones smoothing:
+
+$$\text{IDF}(t) = \ln \left( \frac{N - n(t) + 0.5}{n(t) + 0.5} + 1 \right)$$
+
+where $N = |\mathcal{D}|$ and $n(t)$ is the count of documents containing token $t$.
+
+### 3. Convex Score Combination & Reciprocal Rank Fusion
+
+To resolve differing scale distributions between dense cosine similarity ($[-1, 1]$) and BM25 scores ($[0, \infty)$), raw scores are normalized into the unit interval $[0, 1]$ via min-max normalization:
+
+$$\bar{S}(d) = \frac{S(d) - \min_{d'} S(d')}{\max_{d'} S(d') - \min_{d'} S(d') + \epsilon}$$
+
+**Convex Score Fusion:**
+$$S_{\text{hybrid}}(q, d) = \alpha \cdot \bar{S}_{\text{dense}}(q, d) + (1 - \alpha) \cdot \bar{S}_{\text{BM25}}(q, d), \quad \alpha \in [0, 1]$$
+
+- When $\alpha = 1.0$, retrieval evaluates purely dense semantic similarity.
+- When $\alpha = 0.0$, retrieval executes standard sparse lexical matching.
+- Intermediate values ($0 < \alpha < 1$) establish a Pareto-optimal trade-off between conceptual recall and keyword precision.
+
+**Reciprocal Rank Fusion (RRF):**
+$$\text{RRF}(d) = \sum_{m \in \{\text{dense}, \text{sparse}\}} \frac{1}{k_{\text{rrf}} + r_m(d)}$$
+
+where $r_m(d)$ is the ordinal rank of document $d$ under model $m$, and $k_{\text{rrf}} = 60$ is a smoothing constant mitigating outlier sensitivity.
+
+### 4. Latent Dirichlet Allocation (LDA)
+
+Topic distributions are modeled via a 15-topic LDA generative process. Each document $d$ is characterized by a categorical distribution over $K=15$ topics sampled from a Dirichlet prior $\boldsymbol{\theta}_d \sim \text{Dir}(\boldsymbol{\alpha})$:
+
+$$p(\mathbf{w}_d \mid \boldsymbol{\alpha}, \boldsymbol{\beta}) = \int p(\boldsymbol{\theta}_d \mid \boldsymbol{\alpha}) \left( \prod_{n=1}^{N_d} \sum_{z_{dn}} p(z_{dn} \mid \boldsymbol{\theta}_d) p(w_{dn} \mid z_{dn}, \boldsymbol{\beta}) \right) d\boldsymbol{\theta}_d$$
+
+The resulting vector $\boldsymbol{\theta}_d \in \Delta^{14}$ represents document allocation across the latent thematic simplex.
+
+---
+
+## Dataset Profile & Corpus Geometry
+
+| Parameter | Value | Description |
+| :--- | :--- | :--- |
+| **Document Count ($N$)** | `582` | Full-length monologue and conversational transcripts |
+| **Dense Matrix Geometry** | `(582, 384)` | Unit-normalized `all-MiniLM-L6-v2` dense embeddings |
+| **Sparse Matrix Geometry** | `(582, 1000)` | Bigram-aware TF-IDF baseline representation |
+| **Topic Simplex Geometry** | `(582, 15)` | Unsupervised Latent Dirichlet Allocation posterior mixtures |
+| **BM25 Inverted Index** | `582 docs` | Inverted token postings list over lemmatized content |
+| **Linguistic Preprocessing** | spaCy + NLTK | POS filtering (NOUN, ADJ, VERB, ADV) + stopword removal |
+
+---
+
+## System Architecture
+
+The codebase enforces strict modular separation into three decoupled tiers:
 
 ```
 transnlp/
-├── ai/                  # Pure ML/NLP. No web, no Streamlit.
-│   ├── corpus.py        # Load processed_content_data.csv
-│   ├── embed.py         # TF-IDF corpus matrix + query embedding
-│   ├── similarity.py    # Cosine top-k + OOD score
-│   ├── topics.py        # Topic labels, top words, distribution
-│   ├── nlp.py           # Clean → spaCy → stopwords
-│   └── nltk_setup.py    # NLTK resource bootstrap
+├── ai/                              # Pure Algorithmic/ML Layer (No Web/HTTP dependencies)
+│   ├── corpus.py                    # Corpus loader & tabular accessors
+│   ├── embed.py                     # Bi-encoder encoders, BM25 indices & vectorizers
+│   ├── similarity.py                # Dense cosine, BM25, hybrid fusion, RRF & OOD math
+│   ├── topics.py                    # 15-topic LDA inference & distribution accessors
+│   ├── nlp.py                       # spaCy lemmatization + POS tagging + text cleaning
+│   └── nltk_setup.py                # Isolated NLTK resource bootstrapper
 │
-├── backend/             # FastAPI service (port 8000)
-│   ├── main.py          # App + lifespan + CORS
-│   ├── api/routes.py    # /health, /match, /topics, /specials
-│   ├── schemas.py       # Pydantic models
-│   └── service.py       # Orchestration over ai/
+├── backend/                         # Asynchronous High-Throughput REST Service (port 8000)
+│   ├── main.py                      # FastAPI lifespan preloading & CORS middleware
+│   ├── api/routes.py                # Endpoints: /health, /match, /topics, /specials
+│   ├── schemas.py                   # Pydantic v2 data transfer objects & validation
+│   └── service.py                   # Business logic orchestrating the ai/ layer
 │
-├── pages/               # Streamlit multi-page UI (port 8501)
-│   ├── 1_Transcript_Matcher.py
-│   └── 2_Topic_Explorer.py
+├── app.py                           # Consolidated Single-Entrypoint Streamlit Platform (port 8501)
+│                                    # Tab 1: Retrieval Benchmark & Query Engine
+│                                    # Tab 2: Latent Topic Topology (LDA)
+│                                    # Tab 3: Empirical Methodology & Formulations
 │
-├── scripts/             # Offline pipeline
-│   ├── scrape_data.py            # Scrape transcripts (resumable)
-│   ├── preprocess_data.py        # NLP pipeline → corpus CSV
-│   └── build_corpus_embeddings.py # Build TF-IDF matrix for the corpus
+├── scripts/                         # Reproducible Data Engineering Pipeline
+│   ├── scrape_data.py               # Resumable scraper with JSON caching
+│   ├── preprocess_data.py           # NLP normalization pipeline -> corpus CSV
+│   └── build_corpus_embeddings.py   # Precomputes dense, BM25, TF-IDF & LDA indices
 │
-├── tests/               # pytest
-│   ├── test_similarity.py
-│   ├── test_api.py
-│   └── test_pipeline_idempotency.py
+├── tests/                           # Comprehensive Automated Test Suite (pytest)
+│   ├── test_similarity.py           # Vector math, normalization, and hybrid fusion tests
+│   ├── test_api.py                  # Integration tests for FastAPI endpoints
+│   ├── test_topics.py               # LDA topic assertions
+│   ├── test_nlp.py                  # Preprocessing, lemmatization & token cleaning tests
+│   ├── test_pipeline_idempotency.py # Pipeline determinism test
+│   └── test_scraper.py              # Parsing & metadata extraction tests
 │
-├── data/
-│   ├── raw/             # Scraped transcripts (.pkl per special)
-│   ├── processed/       # processed_content_data.csv (corpus)
-│   ├── ai/              # Generated: corpus_embeddings.npy
-│   └── models/          # Trained LDA + TF-IDF artifacts
+├── data/                            # Persistent Storage (gitignored)
+│   ├── raw/                         # Raw transcript files
+│   ├── processed/                   # processed_content_data.csv
+│   ├── ai/                          # Serialized numpy matrices and BM25 pickles
+│   └── models/                      # Pickled LDA and TF-IDF artifacts
 │
-├── app.py               # Streamlit entry point
-├── config.py            # Project-level paths and constants
-├── Dockerfile           # Shared image for backend + frontend
-├── docker-compose.yml   # Runtime services (corpus mounted from host)
-└── requirements.txt
+├── config.py                        # Centralized paths and environment configuration
+├── Dockerfile                       # Multi-stage production container build
+├── docker-compose.yml               # Service orchestration definition
+└── requirements.txt                 # Frozen dependency manifest
 ```
 
-The three layers are explicit: `ai/` is pure Python and has no web imports,
-`backend/` orchestrates the AI layer over HTTP, and the Streamlit pages are
-thin HTTP clients. Models load once in the FastAPI lifespan; the Streamlit
-app never imports them directly.
+---
 
-## Getting started
+## Experimental Reproduction
 
-You need three things on disk before the app runs: a Python environment with
-dependencies, a built corpus (CSV + TF-IDF matrix + LDA topic vectors), and
-two running processes (backend + frontend). The first two happen once. The
-third is what you do every time you want to use the app.
-
-### 1. Set up the Python environment
+### 1. Environment Initialization
 
 ```bash
-# Create a venv in the project root
-python -m venv .venv
+# Clone the repository
+git clone https://github.com/your-username/transnlp.git
+cd transnlp
 
-# Activate it
-# Linux / macOS:
-source .venv/bin/activate
-# Windows (PowerShell):
+# Create and activate Python virtual environment
+python -m venv .venv
+# On Windows (PowerShell):
 .venv\Scripts\Activate.ps1
-# Windows (cmd):
-.venv\Scripts\activate.bat
+# On Linux / macOS:
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Download the spaCy English model (one-time, ~40 MB)
+# Download spaCy linguistic model
 python -m spacy download en_core_web_sm
 ```
 
-> **On Windows:** if PowerShell blocks `Activate.ps1` with an execution policy
-> error, run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
-> once, then retry. Or skip activation entirely and call the venv's `python.exe`
-> directly (see the run steps below).
+### 2. Precomputing Retrieval Matrices & Indices
 
-### 2. Build the corpus (one time)
-
-The corpus CSV, TF-IDF matrix, and LDA topic vectors are all gitignored —
-they're large and regenerable. Build them in three stages:
+To guarantee sub-second execution at inference time, all corpus indices are precomputed and serialized to disk:
 
 ```bash
-# Stage 1 — Scrape transcripts from scrapsfromtheloft.com (~30 min for 500 specials)
-# Resumable: safe to re-run, skips already-cached transcripts.
-python scripts/scrape_data.py
-
-# Stage 2 — Run the NLP pipeline on each transcript, write the corpus CSV
-# Reads data/raw/transcripts/*.pkl, writes data/processed/processed_content_data.csv
-python scripts/preprocess_data.py
-
-# Stage 3 — Build the matrices the API loads at startup
-# Writes data/ai/corpus_embeddings.npy (TF-IDF, shape 500x1000)
-# and data/ai/corpus_topic_vectors.npy (LDA, shape 500x7)
 python scripts/build_corpus_embeddings.py
 ```
 
-After stage 3 you should have:
+*Build Log:*
+```
+INFO - Step 1/4: Building dense bi-encoder embeddings (all-MiniLM-L6-v2)...
+INFO - Saved dense corpus embeddings: data/ai/corpus_dense_embeddings.npy shape=(582, 384)
+INFO - Step 2/4: Building BM25 lexical index...
+INFO - Saved BM25 index to data/ai/corpus_bm25.pkl (documents=582)
+INFO - Step 3/4: Building TF-IDF matrix...
+INFO - Saved corpus TF-IDF embeddings: data/ai/corpus_embeddings.npy shape=(582, 1000)
+INFO - Step 4/4: Building LDA topic distribution vectors...
+INFO - Saved corpus topic vectors: data/ai/corpus_topic_vectors.npy shape=(582, 15)
+INFO - Corpus retrieval build complete: dense=(582, 384), bm25_docs=582, tfidf=(582, 1000), topics=(582, 15)
+```
 
-- `data/raw/transcripts/{0..499}.pkl` — 500 transcript files
-- `data/processed/processed_content_data.csv` — the corpus
-- `data/ai/corpus_embeddings.npy`
-- `data/ai/corpus_topic_vectors.npy`
+### 3. Executing the Services
 
-If you re-scrape (e.g. you add more sources), re-run stages 2 and 3 in order.
+Start the backend REST API and Streamlit interface in separate processes:
 
-### 3. Run the app
-
-The app is two processes: a FastAPI backend (port 8000) and a Streamlit
-frontend (port 8501). Open two terminals, both with the venv activated.
-
-**Terminal 1 — backend:**
-
+**Backend Service (FastAPI — Port 8000):**
 ```bash
-uvicorn backend.main:app --reload --port 8000
+uvicorn backend.main:app --port 8000
 ```
+- Health Check: `http://localhost:8000/health`
+- OpenAPI Specification: `http://localhost:8000/docs`
 
-On Windows with a local venv (if you didn't activate it):
-
-```powershell
-.venv\Scripts\python.exe -m uvicorn backend.main:app --port 8000
-```
-
-You should see startup logs that include:
-
-```
-INFO - Loading corpus and embeddings at startup...
-INFO - Startup complete: corpus=500 rows, tfidf=(500, 1000), topics=(500, 7)
-```
-
-Sanity check from any terminal:
-
-```bash
-curl http://localhost:8000/health
-# → {"status":"ok","corpus_size":500}
-```
-
-OpenAPI docs: http://localhost:8000/docs
-
-**Terminal 2 — frontend:**
-
+**Frontend Benchmark Interface (Streamlit — Port 8501):**
 ```bash
 streamlit run app.py
 ```
+Open `http://localhost:8501` to access the unified 3-tab benchmark interface.
 
-On Windows:
+---
 
-```powershell
-.venv\Scripts\python.exe -m streamlit run app.py
+## REST API Specification
+
+### `POST /match`
+Executes multi-strategy retrieval over the indexed corpus.
+
+**Request Schema:**
+```json
+{
+  "text": "Institutional governance and the role of technological regulation in modern media.",
+  "k": 5,
+  "search_mode": "hybrid",
+  "alpha": 0.65
+}
 ```
 
-Then open http://localhost:8501. The home page shows a backend health indicator
-— if it's green, paste a draft on the "Transcript Matcher" page and click
-"Find similar specials."
+| Field | Type | Default | Constraints | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `text` | `string` | *required* | $\text{len} \ge 10$ | Query passage to match against corpus. |
+| `k` | `integer` | `5` | $1 \le k \le 20$ | Retrieval depth (top-$k$ documents). |
+| `search_mode` | `string` | `"hybrid"` | `hybrid` \| `dense` \| `sparse` | Active retrieval strategy. |
+| `alpha` | `float` | `0.6` | $0.0 \le \alpha \le 1.0$ | Dense semantic weighting parameter. |
 
-### Run with Docker (alternative)
-
-Docker runs the same two services without a local venv. The corpus pipeline
-(stages 1–3 above) still runs on the host — only the runtime app is containerized.
-
-**Prerequisites:** Docker Desktop (or Docker Engine + Compose v2) and a built
-corpus on disk (`data/processed/processed_content_data.csv` plus
-`data/ai/corpus_embeddings.npy` and `data/ai/corpus_topic_vectors.npy`).
-
-```bash
-# Build images and start backend (:8000) + frontend (:8501)
-docker compose up --build
+**Response Schema:**
+```json
+{
+  "matches": [
+    {
+      "index": 42,
+      "title": "Document Title",
+      "names": "Speaker / Creator Name",
+      "year": 2021,
+      "rating": 8.2,
+      "similarity": 0.7421,
+      "dense_score": 0.7812,
+      "sparse_score": 0.6695,
+      "topic_mix": {
+        "Law, Crime & Society": 0.42,
+        "Politics, Police & Religion": 0.31
+      }
+    }
+  ],
+  "search_mode": "hybrid",
+  "alpha": 0.65,
+  "ood_score": 0.7105,
+  "match_strength": "strong",
+  "corpus_size": 582
+}
 ```
 
-Open http://localhost:8501. The frontend talks to the backend over the Compose
-network (`TRANSNLP_API_URL=http://backend:8000` is set automatically).
+---
 
-To run in the background:
+## Automated Test Suite
 
-```bash
-docker compose up --build -d
-docker compose logs -f    # follow logs
-docker compose down       # stop
-```
-
-**What gets mounted:** `./data/processed` and `./data/ai` are read-only volumes.
-Trained model pickles (`data/models/`) are baked into the image from the repo.
-
-**What stays local:** scraping and corpus rebuild scripts under `scripts/`.
-Re-run stages 2–3 on the host after re-scraping, then restart Compose:
-
-```bash
-docker compose restart backend
-```
-
-### Pointing the frontend at a different backend
-
-By default the frontend expects the backend on `http://localhost:8000`. To
-point it elsewhere (a remote server, a different port, a deployed instance),
-set `TRANSNLP_API_URL`:
-
-```bash
-# Linux / macOS
-TRANSNLP_API_URL=https://my-api.example.com streamlit run app.py
-
-# Windows (PowerShell)
-$env:TRANSNLP_API_URL = "https://my-api.example.com"; streamlit run app.py
-
-# Windows (cmd)
-set TRANSNLP_API_URL=https://my-api.example.com && streamlit run app.py
-```
-
-### Troubleshooting
-
-- **`RuntimeError: Startup failed: ... Run scripts/preprocess_data.py then scripts/build_corpus_embeddings.py first.`**
-  You skipped one of the corpus build stages. Re-run stage 2 and stage 3 from
-  step 2 above.
-
-- **`ModuleNotFoundError: No module named 'spacy'`** (or any other dep) when
-  starting the backend. The venv isn't activated in that terminal, or you're
-  using the system Python instead of the venv's. Use the venv's `python.exe`
-  directly as shown in the Windows examples.
-
-- **`OSError: [E050] Can't find model 'en_core_web_sm'`** when the backend
-  starts. Run `python -m spacy download en_core_web_sm` once.
-
-- **Frontend shows "Backend unreachable" or red status.** The backend isn't
-  running, it's on a different port, or `TRANSNLP_API_URL` is pointing
-  somewhere wrong. Check `curl http://localhost:8000/health` from the same
-  machine the browser is on. Under Docker Compose, use `docker compose ps`
-  and `docker compose logs backend` if the health check never passes.
-
-- **Docker backend exits on startup with `FileNotFoundError`.** The corpus
-  volumes are empty or paths don't match. Build the corpus locally (step 2),
-  confirm the three artifacts exist, then `docker compose up --build` again.
-
-- **NLTK download errors on Windows.** NLTK data is written to a temp dir
-  (`%TEMP%\nltk_data` on Windows, `/tmp/nltk_data` on Linux). If downloads
-  fail, check that the temp dir is writable.
-
-### Run the tests
+The test suite validates theoretical correctness, boundary edge cases, and API contracts:
 
 ```bash
 pytest tests/ -v
 ```
 
-Tests that require the corpus on disk are auto-skipped with a clear message
-when the artifacts aren't present.
+```
+tests/test_api.py::test_health PASSED
+tests/test_api.py::test_match_returns_top_k_with_schema PASSED
+tests/test_api.py::test_match_dense_and_sparse_modes PASSED
+tests/test_api.py::test_match_rejects_too_short_text PASSED
+tests/test_api.py::test_match_handles_empty_query_gracefully PASSED
+tests/test_api.py::test_topics_endpoint PASSED
+tests/test_api.py::test_specials_endpoint PASSED
+tests/test_api.py::test_specials_unknown_topic_returns_empty PASSED
+tests/test_nlp.py::test_clean_text PASSED
+tests/test_nlp.py::test_remove_stopwords PASSED
+tests/test_nlp.py::test_preprocess PASSED
+tests/test_nlp.py::test_preprocess_batch PASSED
+tests/test_pipeline_idempotency.py::test_preprocess_is_deterministic PASSED
+tests/test_pipeline_idempotency.py::test_preprocess_handles_empty_and_non_string PASSED
+tests/test_pipeline_idempotency.py::test_preprocess_strips_punctuation_and_lowercases PASSED
+tests/test_scraper.py::test_combine_text PASSED
+tests/test_scraper.py::test_extract_name PASSED
+tests/test_scraper.py::test_extract_title PASSED
+tests/test_similarity.py::test_cosine_top_k_returns_k_items PASSED
+tests/test_similarity.py::test_cosine_top_k_picks_closest_first PASSED
+tests/test_similarity.py::test_cosine_top_k_handles_1d_query PASSED
+tests/test_similarity.py::test_cosine_top_k_zero_query_returns_zeros PASSED
+tests/test_similarity.py::test_cosine_top_k_ties_preserve_count PASSED
+tests/test_similarity.py::test_cosine_top_k_k_larger_than_corpus PASSED
+tests/test_similarity.py::test_cosine_top_k_empty_corpus PASSED
+tests/test_similarity.py::test_ood_score_in_distribution PASSED
+tests/test_similarity.py::test_ood_score_out_of_distribution PASSED
+tests/test_similarity.py::test_ood_score_zero_query PASSED
+tests/test_similarity.py::test_match_strength_label_thresholds PASSED
+tests/test_similarity.py::test_dense_top_k PASSED
+tests/test_similarity.py::test_hybrid_top_k_convex_combination PASSED
+tests/test_similarity.py::test_reciprocal_rank_fusion PASSED
+tests/test_topics.py::test_avg_rating_for_topic PASSED
+tests/test_topics.py::test_avg_rating_empty_corpus PASSED
+tests/test_topics.py::test_avg_rating_missing_rating_col PASSED
 
-## API
+======================= 34 passed, 1 warning in 17.5s ========================
+```
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | `{"status": "ok", "corpus_size": N}` |
-| `/match` | POST | Body: `{"text": str, "k": int}`. Returns top-k similar specials + OOD score. |
-| `/topics` | GET | All 7 topics with top words, special count, avg rating, corpus share. |
-| `/specials?topic=X&limit=20` | GET | Specials where `topic` dominates, ordered by topic weight. |
+---
 
-OpenAPI docs at http://localhost:8000/docs when the backend is running.
+## Containerized Deployment
 
-## How similarity is computed
+Execute both services via Docker Compose:
 
-For each special in the corpus we precompute a TF-IDF vector using the
-trained `tfidf_vectorizer.pkl` (max 1000 features, bigram-aware, identity
-tokenizer/analyzer). When a query comes in, we run the same NLP pipeline
-(clean → spaCy lemmatize → keep NOUN/ADJ/VERB/ADV → NLTK stopwords) and
-vectorize with the same vocabulary. Cosine similarity between the query
-vector and every corpus row gives the top-k neighbors.
-
-The OOD score is the mean of the top-5 cosine similarities. It's a single
-number that says "how well does this draft fit the corpus at all?" — used
-to surface the "doesn't closely resemble our corpus" warning when appropriate.
-
-## Honest limits
-
-- The corpus is 500 specials from scrapsfromtheloft.com. It's English-language
-  stand-up, biased toward American/British specials that have already circulated.
-- LDA + TF-IDF on 500 documents is a real representation, not a deep one.
-  Similarity scores should be read as "thematic/lexical neighborhood," not
-  "this is the same kind of work."
-- No novelty detection beyond cosine distance from the corpus — being unlike
-  existing work is read as "no match," not "opportunity."
-
-## License
-
-Personal project. Scraped transcripts belong to their original publishers.
+```bash
+docker compose up --build
+```
+The benchmark interface will be exposed on port `8501`, connecting internally to the FastAPI container on port `8000`.

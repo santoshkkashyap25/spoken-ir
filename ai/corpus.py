@@ -54,5 +54,5 @@ def load_corpus() -> pd.DataFrame:
 
 
 def get_corpus_size() -> int:
-    """Number of specials in the corpus."""
+    """Number of documents in the corpus."""
     return len(load_corpus())

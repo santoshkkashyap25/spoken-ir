@@ -95,3 +95,43 @@ def test_match_strength_label_thresholds() -> None:
     assert match_strength_label(0.10) == "weak"
     assert match_strength_label(0.05) == "very_weak"
     assert match_strength_label(0.0) == "very_weak"
+
+
+def test_dense_top_k() -> None:
+    from ai.similarity import dense_top_k
+    corpus = np.array([[1.0, 0.0], [0.0, 1.0], [0.707, 0.707]])
+    query = np.array([[1.0, 0.0]])
+    res = dense_top_k(query, corpus, k=2)
+    assert len(res) == 2
+    assert res[0].index == 0
+    assert res[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+def test_hybrid_top_k_convex_combination() -> None:
+    from ai.similarity import hybrid_top_k
+    dense_scores = np.array([1.0, 0.2, 0.0])
+    sparse_scores = np.array([0.1, 0.9, 0.0])
+
+    # alpha = 1.0 -> purely dense
+    res_dense = hybrid_top_k(dense_scores, sparse_scores, alpha=1.0, k=2)
+    assert res_dense[0].index == 0
+
+    # alpha = 0.0 -> purely sparse
+    res_sparse = hybrid_top_k(dense_scores, sparse_scores, alpha=0.0, k=2)
+    assert res_sparse[0].index == 1
+
+    # alpha = 0.5 -> balanced
+    res_hybrid = hybrid_top_k(dense_scores, sparse_scores, alpha=0.5, k=3)
+    assert len(res_hybrid) == 3
+    assert res_hybrid[0].dense_score is not None
+    assert res_hybrid[0].sparse_score is not None
+
+
+def test_reciprocal_rank_fusion() -> None:
+    from ai.similarity import reciprocal_rank_fusion
+    dense_scores = np.array([0.9, 0.4, 0.1])
+    sparse_scores = np.array([0.8, 0.5, 0.2])
+    res = reciprocal_rank_fusion(dense_scores, sparse_scores, c=60, k=2)
+    assert len(res) == 2
+    assert res[0].index == 0
+

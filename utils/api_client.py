@@ -45,35 +45,23 @@ def check_backend_health(base: str) -> bool:
         return False
 
 
-def get_topics(base: str) -> Optional[dict]:
-    try:
-        r = httpx.get(f"{base}/topics", timeout=10.0)
-        r.raise_for_status()
-        return r.json()
-    except Exception as e:
-        _show_error(f"/topics failed: {e}")
-        return None
 
-
-def get_specials(base: str, topic: str, limit: int = 20) -> Optional[dict]:
-    try:
-        r = httpx.get(
-            f"{base}/specials",
-            params={"topic": topic, "limit": limit},
-            timeout=10.0,
-        )
-        r.raise_for_status()
-        return r.json()
-    except Exception as e:
-        _show_error(f"/specials failed: {e}")
-        return None
-
-
-def post_match(base: str, text: str, k: int = 5) -> Optional[dict]:
+def post_match(
+    base: str,
+    text: str,
+    k: int = 5,
+    search_mode: str = "hybrid",
+    alpha: float = 0.6,
+) -> Optional[dict]:
     try:
         r = httpx.post(
             f"{base}/match",
-            json={"text": text, "k": k},
+            json={
+                "text": text,
+                "k": k,
+                "search_mode": search_mode,
+                "alpha": alpha,
+            },
             timeout=30.0,
         )
         r.raise_for_status()

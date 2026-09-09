@@ -3,8 +3,8 @@ from ai.nlp import clean_text, remove_stopwords, preprocess, preprocess_batch
 
 def test_clean_text():
     assert clean_text("Hello World!") == "hello world"
-    assert clean_text("This is [bracketed] text.") == "this is  text"
-    assert clean_text("Testing 123 numbers") == "testing  numbers"
+    assert clean_text("This is [bracketed] text.") == "this is bracketed text"
+    assert clean_text("Testing 123 numbers") == "testing numbers"
     assert clean_text("newlines\nshould\rbe gone") == "newlines should be gone"
 
 def test_remove_stopwords():
@@ -29,5 +29,5 @@ def test_preprocess_batch():
     results = preprocess_batch(texts)
     assert len(results) == 2
     assert "first" in results[0] or "sentence" in results[0]
-    assert "another" in results[1]
+    assert "number" in results[1]
     assert "123" not in results[1]

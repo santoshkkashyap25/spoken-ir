@@ -11,8 +11,6 @@ from backend.schemas import (
     HealthResponse,
     MatchRequest,
     MatchResponse,
-    SpecialsResponse,
-    TopicsResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,22 +25,16 @@ def health() -> HealthResponse:
 
 @router.post("/match", response_model=MatchResponse)
 def match(req: MatchRequest) -> MatchResponse:
+    """Retrieve top-k transcripts via hybrid, dense, or sparse search."""
     try:
-        result = service.get_match(req.text, k=req.k)
+        result = service.get_match(
+            req.text,
+            k=req.k,
+            search_mode=req.search_mode,
+            alpha=req.alpha,
+        )
     except FileNotFoundError as e:
         logger.error("Corpus assets missing: %s", e)
         raise HTTPException(status_code=503, detail=str(e))
     return MatchResponse(**result)
 
-
-@router.get("/topics", response_model=TopicsResponse)
-def topics() -> TopicsResponse:
-    return TopicsResponse(**service.get_topics())
-
-
-@router.get("/specials", response_model=SpecialsResponse)
-def specials(
-    topic: str = Query(..., description="Topic label, e.g. 'Politics'"),
-    limit: int = Query(20, ge=1, le=100),
-) -> SpecialsResponse:
-    return SpecialsResponse(**service.get_specials(topic, limit=limit))

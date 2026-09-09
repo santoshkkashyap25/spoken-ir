@@ -3,4 +3,4 @@
 No web framework, no Streamlit. Importable from anywhere.
 """
 
-__all__ = ["corpus", "embed", "similarity", "topics", "nlp"]
+__all__ = ["corpus", "embed", "similarity", "nlp"]

@@ -37,15 +37,12 @@ except Exception as e:  # noqa: BLE001
 
 # --- NLTK imports (data bootstrapped by nltk_setup) ---
 from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import word_tokenize  # noqa: E402
 
 _STOPWORDS = set(stopwords.words("english"))
-_LEMMATIZER = WordNetLemmatizer()
 
-# Common comedy profanity, slang, anatomical, transcript artifact, and generic noise words
+# Conversational disfluencies, spoken artifacts, profanity, and generic noise tokens
 _PROFANITY = {
-    # Profanity
+    # Profanity & crude language
     "fuck", "fucking", "fuckin", "fucker", "fucks", "fck", "fcking", "fcke", "fckin",
     "motherfucker", "motherfucking", "motherfcker", "motherfckin",
     "shit", "bullshit",
@@ -58,20 +55,20 @@ _PROFANITY = {
     # Anatomical / Crude
     "ball", "balls", "fart", "farts", "blow", "suck",
     
-    # Filler / Slang
+    # Filler / Slang / Disfluencies
     "wan", "na", "gonna", "gotta", "lemme", "gimme", "yeah", "yes", "no", "oh", "uh", "um", "like",
     "dude", "bro", "mate", "mum", "bloke", "guy", "man", "sort", "quite", "g", "n", "l", "e", "c",
     
     # Transcript Artifacts
     "laughter", "applause", "cheer", "chuckle", "applaud", "voice", "music", "playing",
     
-    # Italian/Foreign leaks
+    # Foreign leaks
     "perch", "sono", "essere", "sapete", "bambini", "di", "era", "alla", "fare", "quando",
 
     # Ultra-Common Family Terms (blurring topics)
     "mom", "wife", "mother", "son", "parent", "child", "brother", "husband", "boyfriend", "daughter", "daddy", "mama",
 
-    # Meta-Comedy & Performance
+    # Spoken performance & presentation noise
     "comedy", "comedian", "standup", "movie", "film", "audience", "applauding", "write", "song", "picture",
 
     # Abstract Verbs & General Noise
@@ -80,30 +77,17 @@ _PROFANITY = {
 
 
 def clean_text(text: str) -> str:
-    """Lowercase, strip punctuation and non-alphabetic characters."""
+    """Lowercase, strip punctuation/non-alphabetic characters, and normalize whitespace."""
     text = text.lower()
     text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
     text = re.sub(r"[^a-zA-Z\s]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
-def lemmatize_text(text: str) -> str:
-    """NLTK WordNet lemmatizer over word_tokenize."""
-    tokens = word_tokenize(text)
-    return " ".join(_LEMMATIZER.lemmatize(t) for t in tokens)
-
-
-def filter_pos(text: str, allowed_pos: tuple[str, ...] = ("NOUN", "ADJ", "VERB", "ADV")) -> str:
-    """Keep tokens whose NLTK POS tag starts with one of the allowed prefixes."""
-    allowed = {p[0] for p in allowed_pos}
-    tokens = nltk.word_tokenize(text)
-    tagged = nltk.pos_tag(tokens)
-    return " ".join(w for w, t in tagged if t[:1] in allowed)
-
-
 def remove_stopwords(text: str) -> str:
-    """Drop English stopwords and common profanity."""
-    tokens = word_tokenize(text)
+    """Drop English stopwords, disfluencies, and noise tokens."""
+    tokens = text.split()
     return " ".join(t for t in tokens if t not in _STOPWORDS and t not in _PROFANITY)
 
 
@@ -122,11 +106,12 @@ def preprocess(text: str) -> str:
         kept = [t.lemma_ for t in doc if t.pos_ in {"NOUN", "ADJ", "VERB", "ADV"}]
         spacy_out = " ".join(kept)
     else:
-        # NLTK fallback when spaCy isn't available.
-        logger.warning("Using NLTK fallback for lemmatization/POS filtering.")
-        spacy_out = filter_pos(lemmatize_text(cleaned))
+        # Fallback when spaCy is unavailable
+        logger.warning("spaCy model unavailable; using basic whitespace tokenization fallback.")
+        spacy_out = cleaned
 
     return remove_stopwords(spacy_out)
+
 
 
 def preprocess_batch(texts: list[str]) -> list[str]:

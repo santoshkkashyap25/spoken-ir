@@ -21,7 +21,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ai.corpus import load_corpus
-from ai.embed import load_corpus_embeddings, load_corpus_topic_vectors
+from ai.embed import (
+    load_corpus_bm25_index,
+    load_corpus_dense_embeddings,
+    load_corpus_embeddings,
+)
 from backend.api.routes import router
 
 logging.basicConfig(
@@ -33,12 +37,19 @@ logger = logging.getLogger("transnlp.api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load corpus artifacts once at startup. Log a clear error if any are missing."""
-    logger.info("Loading corpus and embeddings at startup...")
+    """Load corpus retrieval artifacts once at startup. Log a clear error if any are missing."""
+    logger.info("Loading corpus and hybrid retrieval artifacts at startup...")
     try:
         corpus = load_corpus()
-        embeddings = load_corpus_embeddings()
-        topic_vecs = load_corpus_topic_vectors()
+        # Preload dense embeddings and BM25 index
+        dense_embs = load_corpus_dense_embeddings()
+        bm25_idx = load_corpus_bm25_index()
+        # Optional TF-IDF
+        try:
+            tfidf_embs = load_corpus_embeddings()
+            tfidf_shape = tfidf_embs.shape
+        except Exception:
+            tfidf_shape = "N/A"
     except FileNotFoundError as e:
         logger.error(
             "Startup failed: %s. "
@@ -47,18 +58,20 @@ async def lifespan(app: FastAPI):
         )
         raise
     logger.info(
-        "Startup complete: corpus=%d rows, tfidf=%s, topics=%s",
+        "Startup complete: corpus=%d rows, dense=%s, bm25_docs=%d, tfidf=%s",
         len(corpus),
-        embeddings.shape,
-        topic_vecs.shape,
+        dense_embs.shape,
+        len(corpus),
+        tfidf_shape,
     )
     yield
     logger.info("Shutting down.")
 
 
+
 app = FastAPI(
     title="TransNLP API",
-    description="Find existing specials a draft stand-up transcript most resembles.",
+    description="Domain-Specific Semantic Search & Hybrid Information Retrieval Engine for Spoken Transcripts.",
     version="2.0.0",
     lifespan=lifespan,
 )

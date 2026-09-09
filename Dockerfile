@@ -34,14 +34,7 @@ ENV NLTK_DATA=/app/nltk_data
 RUN mkdir -p /app/nltk_data \
     && python - <<'EOF'
 import nltk
-for pkg in (
-    "punkt",
-    "punkt_tab",
-    "stopwords",
-    "wordnet",
-    "averaged_perceptron_tagger",
-    "averaged_perceptron_tagger_eng",
-):
+for pkg in ("stopwords",):
     nltk.download(pkg, download_dir="/app/nltk_data", quiet=True)
 EOF
 
@@ -51,7 +44,6 @@ EOF
 COPY data/models/        data/models/
 COPY ai/                 ai/
 COPY backend/            backend/
-COPY pages/              pages/
 COPY utils/              utils/
 COPY .streamlit/         .streamlit/
 COPY config.py           config.py
