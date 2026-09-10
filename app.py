@@ -1,6 +1,6 @@
-"""TransNLP — Domain-Specific Semantic Search & Information Retrieval Benchmark.
+"""Spoken-IR — Stand-Up Comedy Semantic Search & Hybrid Retrieval.
 
-A unified, educational, and empirical platform benchmarking:
+A unified platform benchmarking:
 1. Dense Bi-Encoder Embeddings (sentence-transformers/all-MiniLM-L6-v2)
 2. Probabilistic Lexical Relevance (BM25Okapi)
 3. Convex Hybrid Score Fusion & Reciprocal Rank Fusion (RRF)
@@ -19,16 +19,103 @@ from utils.api_client import (
 
 # ── Page Configuration ─────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="TransNLP — Information Retrieval Benchmark",
-    page_icon="🔬",
+    page_title="Spoken-IR — Stand-Up Comedy Semantic Search",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("🔬 TransNLP: Spoken-Word Information Retrieval Benchmark")
+# ── Custom Styling: Tab Spacing, Typography & Cards ────────────────────────────
+st.markdown(
+    """
+    <style>
+    /* ── Page Padding & Max Width ── */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 4rem;
+        max-width: 1220px;
+    }
+
+    /* ── Tab Bar Container & Spacing ── */
+    div[data-testid="stTabs"] {
+        margin-top: 1.5rem;
+    }
+
+    div[data-testid="stTabs"] > div[role="tablist"] {
+        gap: 1.75rem;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.22);
+        padding-bottom: 2px;
+    }
+
+    /* ── Individual Tabs ── */
+    div[data-testid="stTabs"] button[role="tab"] {
+        font-size: 1.05rem;
+        font-weight: 500;
+        padding: 0.75rem 1.6rem;
+        border-radius: 6px 6px 0 0;
+        transition: all 0.2s ease-in-out;
+        border: none;
+        background: transparent;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"] p,
+    div[data-testid="stTabs"] button[role="tab"] span {
+        font-size: 1.05rem;
+        font-weight: 500;
+        transition: color 0.2s ease-in-out;
+    }
+
+    /* Hover state: highlight with primary accent, never dark-on-dark */
+    div[data-testid="stTabs"] button[role="tab"]:hover {
+        background-color: rgba(128, 128, 128, 0.12);
+    }
+
+    div[data-testid="stTabs"] button[role="tab"]:hover p,
+    div[data-testid="stTabs"] button[role="tab"]:hover span {
+        color: var(--primary-color, #38bdf8) !important;
+    }
+
+    /* Active selected tab */
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        border-bottom: 3px solid var(--primary-color, #0284c7) !important;
+        background-color: transparent;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] p,
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] span {
+        color: var(--primary-color, #0284c7) !important;
+        font-weight: 600;
+    }
+
+
+    /* ── Tab Content Spacing ── */
+    div[data-testid="stTabs"] > div[role="tabpanel"] {
+        padding-top: 2rem;
+    }
+
+    /* ── Metric Box Styling ── */
+    div[data-testid="stMetric"] {
+        background-color: rgba(128, 128, 128, 0.04);
+        border: 1px solid rgba(128, 128, 128, 0.15);
+        border-radius: 8px;
+        padding: 0.85rem 1.15rem;
+    }
+
+    /* ── Result Cards ── */
+    div[data-testid="stExpander"] {
+        border: 1px solid rgba(128, 128, 128, 0.18);
+        border-radius: 8px;
+        margin-bottom: 0.85rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.title("Spoken-IR: Stand-Up Comedy Semantic Search & Hybrid Retrieval")
 st.caption(
-    "An empirical platform comparing Dense Bi-Encoders, BM25 Lexical Ranking, "
-    "and Hybrid Convex Fusion across 580+ spoken monologue transcripts."
+    "Hybrid Information Retrieval comparing Dense Bi-Encoders (MiniLM-L6-v2) and BM25 Lexical Ranking "
+    "across 582 stand-up comedy special transcripts."
 )
 
 base = api_base_url()
@@ -37,7 +124,7 @@ backend_alive = check_backend_health(base)
 # ── Header Health Status ───────────────────────────────────────────────────────
 if not backend_alive:
     st.error(
-        f"⚠️ **Backend Service Offline** (`{base}`). "
+        f"Backend Service Offline (`{base}`). "
         "Launch the FastAPI backend service via:\n\n"
         "```bash\n.venv\\Scripts\\python.exe -m uvicorn backend.main:app --port 8000\n```"
     )
@@ -45,20 +132,21 @@ if not backend_alive:
 # ── Core Benchmark Tabs ────────────────────────────────────────────────────────
 tab_search, tab_theory = st.tabs(
     [
-        "🔍 Retrieval Benchmark & Query Engine",
-        "📐 Empirical Methodology & Formulations",
+        "Retrieval Benchmark & Query Engine",
+        "Empirical Methodology & Formulations",
     ]
 )
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 1: RETRIEVAL BENCHMARK & QUERY ENGINE
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_search:
-    st.subheader("Query Execution & Multi-Strategy Retrieval")
+    st.subheader("Search Stand-Up Comedy Transcripts")
     st.markdown(
-        "Evaluate retrieval efficacy on spoken text by comparing dense semantic vectors against "
-        "exact BM25 inverted-index matching and tunable hybrid convex combinations."
+        "Find comedy routines, jokes, and specials by comparing dense semantic vectors (`all-MiniLM-L6-v2`) "
+        "against exact BM25 keyword matching and tunable hybrid score fusion."
     )
 
     # Retrieval Configuration
@@ -107,31 +195,50 @@ with tab_search:
             "Input query passage or transcript excerpt:",
             height=180,
             placeholder=(
-                "e.g., 'Technological progress in artificial intelligence is reshaping institutional trust. "
-                "Conversations around algorithmic governance and corporate accountability highlight "
-                "how public discourse struggles to keep pace with innovation.'"
+                "e.g., 'The psychological fear of aging, knee pain, and realizing your parents were right.'\n"
+                "or: 'A comedian talking about buying candy at Walgreens and old guy phrases.'"
             ),
         )
     with q_col2:
-        uploaded_file = st.file_uploader("Or upload text file (.txt)", type=["txt"])
+        uploaded_file = st.file_uploader(
+            "Or upload document (PDF, Markdown, Text):",
+            type=["pdf", "md", "txt"],
+            help="Extract text from PDF (.pdf), Markdown (.md), or plain text (.txt) files",
+        )
+
 
     query_content = ""
     if uploaded_file is not None:
         try:
-            query_content = uploaded_file.read().decode("utf-8")
-            st.success(f"Loaded {len(query_content):,} characters from `{uploaded_file.name}`")
+            fname = uploaded_file.name.lower()
+            if fname.endswith(".pdf"):
+                import io
+                from pypdf import PdfReader
+
+                reader = PdfReader(io.BytesIO(uploaded_file.read()))
+                pages_text = [page.extract_text() or "" for page in reader.pages]
+                query_content = "\n".join(pages_text).strip()
+                st.success(f"Extracted {len(query_content):,} characters from {len(reader.pages)} PDF page(s)")
+            else:
+                query_content = uploaded_file.read().decode("utf-8", errors="replace")
+                st.success(f"Loaded {len(query_content):,} characters from `{uploaded_file.name}`")
+
+            if query_content:
+                with st.expander("Preview Extracted Document Content", expanded=False):
+                    st.text(query_content[:1500] + ("..." if len(query_content) > 1500 else ""))
         except Exception as e:
-            st.error(f"Error parsing file: {e}")
+            st.error(f"Error extracting text from file: {e}")
     elif input_text:
         query_content = input_text
 
-    if st.button("Execute Retrieval Benchmark", type="primary"):
+
+    if st.button("Search Stand-Up Specials", type="primary"):
         if not query_content or len(query_content.strip()) < 20:
             st.warning("Please provide a query passage of at least 20 characters.")
         elif not backend_alive:
             st.error("Backend API is unreachable. Ensure the FastAPI service is active on port 8000.")
         else:
-            with st.spinner(f"Computing {mode_key.upper()} scores across 582 corpus documents..."):
+            with st.spinner(f"Computing {mode_key.upper()} scores across 582 comedy specials..."):
                 result = post_match(base, query_content, k=k, search_mode=mode_key, alpha=alpha)
 
             if result is None:
@@ -203,19 +310,19 @@ with tab_theory:
 
     st.subheader("Theoretical Grounding & Mathematical Formulations")
     st.markdown(
-        "This project investigates the trade-offs between **dense semantic representations**, "
-        "**sparse probabilistic keyword scoring**, and **probabilistic topic distributions** "
-        "when applied to unstructured spoken-word corpora."
+        "This project investigates the empirical trade-offs between **dense continuous semantic representations** "
+        "and **sparse probabilistic lexical scoring (BM25)** when applied to stand-up comedy transcripts."
     )
 
     st.markdown("---")
 
+
     # 1. Dense Bi-Encoder
     st.markdown("### 1. Dense Semantic Retrieval (Bi-Encoder)")
     st.markdown(
-        "Given a query passage $q$ and a document $d$, a pre-trained transformer encoder "
-        "$\mathcal{E}_{\phi}(\cdot)$ maps each text sequence to a fixed-dimensional continuous embedding vector "
-        "$\mathbf{e} \in \mathbb{R}^{D}$ (with $D=384$ using `all-MiniLM-L6-v2`):"
+        r"Given a query passage $q$ and a document $d$, a pre-trained transformer encoder "
+        r"$\mathcal{E}_{\phi}(\cdot)$ maps each text sequence to a fixed-dimensional continuous embedding vector "
+        r"$\mathbf{e} \in \mathbb{R}^{D}$ (with $D=384$ using `all-MiniLM-L6-v2`):"
     )
     st.latex(r"\mathbf{e}_q = \mathcal{E}_{\phi}(q), \quad \mathbf{e}_d = \mathcal{E}_{\phi}(d)")
     st.markdown("Cosine similarity is computed via dot-product over unit-normalized representations:")
@@ -228,8 +335,8 @@ with tab_theory:
     # 2. Sparse BM25
     st.markdown("### 2. Sparse Lexical Retrieval (BM25Okapi)")
     st.markdown(
-        "BM25 establishes relevance based on non-linear term frequency saturation and document length normalization. "
-        "For query tokens $t \in q$ and document $d$:"
+        r"BM25 establishes relevance based on non-linear term frequency saturation and document length normalization. "
+        r"For query tokens $t \in q$ and document $d$:"
     )
     st.latex(
         r"\text{BM25}(q, d) = \sum_{t \in q} \text{IDF}(t) \cdot \frac{f(t, d) \cdot (k_1 + 1)}{f(t, d) + k_1 \cdot \left(1 - b + b \cdot \frac{|d|}{\text{avgdl}}\right)}"
@@ -244,8 +351,8 @@ with tab_theory:
     # 3. Hybrid Fusion
     st.markdown("### 3. Convex Score Fusion & Reciprocal Rank Fusion")
     st.markdown(
-        "Individual raw scores are normalized into the interval $[0, 1]$ via min-max scaling $\bar{S}$. "
-        "Convex score combination interpolates between contextual abstraction and lexical exactness:"
+        r"Individual raw scores are normalized into the interval $[0, 1]$ via min-max scaling $\bar{S}$. "
+        r"Convex score combination interpolates between contextual abstraction and lexical exactness:"
     )
     st.latex(
         r"S_{\text{hybrid}}(q, d) = \alpha \cdot \bar{S}_{\text{dense}}(q, d) + (1 - \alpha) \cdot \bar{S}_{\text{BM25}}(q, d), \quad \alpha \in [0, 1]"
@@ -257,27 +364,28 @@ with tab_theory:
         r"\text{RRF}(d) = \sum_{m \in \{\text{dense}, \text{sparse}\}} \frac{1}{k_{\text{rrf}} + r_m(d)}, \quad k_{\text{rrf}} = 60"
     )
 
+
     st.markdown("---")
 
     # 4. Comparative Empirical Insights
-    st.markdown("### 4. Empirical Observations on Spoken-Word Text")
+    st.markdown("### 4. Empirical Observations on Stand-Up Comedy Transcripts")
 
     ins_col1, ins_col2 = st.columns(2)
     with ins_col1:
         st.markdown(
             """
             **When Dense Retrieval Dominates:**
-            - Conversational metaphors, idioms, and colloquial phrasing.
-            - Thematic cross-domain matching where shared concept vocabulary diverges.
-            - Robustness to transcription noise and minor grammatical variance.
+            - Conversational metaphors, slang, and comedy premises.
+            - Storytelling routines where you remember the topic but not the exact wording.
+            - Robustness to transcription artifacts and informal sentence structure.
             """
         )
     with ins_col2:
         st.markdown(
             """
             **When BM25 Lexical Retrieval Is Essential:**
-            - Proper nouns, personal names, city references, and specific event tags.
-            - Niche jargon that pre-trained bi-encoders may dilute into generic semantic neighborhoods.
-            - High-precision filtering against vocabulary hallucination.
+            - Distinctive punchlines, uncommon words (e.g., product names, places).
+            - Comedian names, special titles, and specific entity mentions.
+            - High-precision matching when exact phrasing is known.
             """
         )

@@ -21,7 +21,7 @@ def api_base_url() -> str:
 
     Default: http://localhost:8000 (matches the README's run instructions).
     """
-    return os.environ.get("TRANSNLP_API_URL", "http://localhost:8000").rstrip("/")
+    return os.environ.get("SPOKEN_IR_API_URL", os.environ.get("TRANSNLP_API_URL", "http://localhost:8000")).rstrip("/")
 
 
 def _show_error(msg: str) -> None:

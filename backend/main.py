@@ -32,19 +32,17 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger("transnlp.api")
+logger = logging.getLogger("spoken_ir.api")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load corpus retrieval artifacts once at startup. Log a clear error if any are missing."""
-    logger.info("Loading corpus and hybrid retrieval artifacts at startup...")
+    logger.info("Initializing Spoken-IR backend...")
     try:
         corpus = load_corpus()
-        # Preload dense embeddings and BM25 index
         dense_embs = load_corpus_dense_embeddings()
         bm25_idx = load_corpus_bm25_index()
-        # Optional TF-IDF
         try:
             tfidf_embs = load_corpus_embeddings()
             tfidf_shape = tfidf_embs.shape
@@ -57,8 +55,9 @@ async def lifespan(app: FastAPI):
             e,
         )
         raise
+
     logger.info(
-        "Startup complete: corpus=%d rows, dense=%s, bm25_docs=%d, tfidf=%s",
+        "Corpus preloaded successfully: %d transcripts. Dense shape=%s, BM25 docs=%d, TF-IDF shape=%s",
         len(corpus),
         dense_embs.shape,
         len(corpus),
@@ -70,17 +69,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="TransNLP API",
-    description="Domain-Specific Semantic Search & Hybrid Information Retrieval Engine for Spoken Transcripts.",
+    title="Spoken-IR API",
+    description="Stand-Up Comedy Semantic Search & Hybrid Information Retrieval Engine.",
     version="2.0.0",
     lifespan=lifespan,
 )
 
-# CORS — origins are configurable via TRANSNLP_CORS_ORIGINS (comma-separated).
+# CORS — origins are configurable via SPOKEN_IR_CORS_ORIGINS or legacy TRANSNLP_CORS_ORIGINS.
 # Defaults to localhost for local development; override in docker-compose / k8s.
 _raw_origins = os.environ.get(
-    "TRANSNLP_CORS_ORIGINS",
-    "http://localhost:8501,http://127.0.0.1:8501",
+    "SPOKEN_IR_CORS_ORIGINS",
+    os.environ.get("TRANSNLP_CORS_ORIGINS", "http://localhost:8501,http://127.0.0.1:8501"),
 )
 _cors_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 

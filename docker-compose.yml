@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# TransNLP — Docker Compose
+# Spoken-IR — Docker Compose
 #
 # Usage:
 #   docker compose up --build          # first run
@@ -14,14 +14,14 @@ x-build-common: &build-common
   build:
     context: .
     dockerfile: Dockerfile
-  image: transnlp:latest          # build once, share between both services
+  image: spoken-ir:latest          # build once, share between both services
   restart: unless-stopped
 
 services:
   # ── FastAPI backend ──────────────────────────────────────────────────────
   backend:
     <<: *build-common
-    container_name: transnlp-backend
+    container_name: spoken-ir-backend
     command:
       - uvicorn
       - backend.main:app
@@ -42,7 +42,7 @@ services:
       NLTK_DATA: /app/nltk_data
       # Allow CORS from the Streamlit frontend (browser→backend).
       # Override with your public domain in production.
-      TRANSNLP_CORS_ORIGINS: "http://localhost:8501,http://127.0.0.1:8501"
+      SPOKEN_IR_CORS_ORIGINS: "http://localhost:8501,http://127.0.0.1:8501"
     healthcheck:
       test:
         [
@@ -59,7 +59,7 @@ services:
   # ── Streamlit frontend ───────────────────────────────────────────────────
   frontend:
     <<: *build-common
-    container_name: transnlp-frontend
+    container_name: spoken-ir-frontend
     command:
       - streamlit
       - run
@@ -75,7 +75,7 @@ services:
       NLTK_DATA: /app/nltk_data
       # The frontend talks to the backend via the Docker internal network
       # using the service name "backend".
-      TRANSNLP_API_URL: http://backend:8000
+      SPOKEN_IR_API_URL: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy

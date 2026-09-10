@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "transnlp"
+name = "spoken-ir"
 version = "2.0.0"
-description = "Domain-Specific Semantic Search & Information Retrieval Engine"
-authors = [{name = "TransNLP"}]
+description = "Stand-Up Comedy Semantic Search & Hybrid Retrieval Engine"
+authors = [{name = "Spoken-IR"}]
 
 [tool.setuptools.packages.find]
 include = ["ai*", "backend*", "utils*"]

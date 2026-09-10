@@ -18,7 +18,7 @@ from pathlib import Path
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
-APP_NAME = "TransNLP — Semantic Search & Information Retrieval Engine"
+APP_NAME = "Spoken-IR — Semantic Search & Information Retrieval Engine"
 
 # ── Project root ───────────────────────────────────────────────────────────────
 # config.py lives at the project root, so its parent IS the project root.
