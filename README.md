@@ -54,55 +54,29 @@ Stand-up comedy is conversational, slang-heavy, and narrative-driven, creating t
 ## How Search Works
 
 ### 1. Dense Semantic Search (MiniLM-L6-v2)
-
-Each transcript $d$ and query $q$ is encoded into a 384-dimensional continuous vector using `sentence-transformers/all-MiniLM-L6-v2`:
-
-$$\mathbf{e}_q = \mathcal{E}(q), \quad \mathbf{e}_d = \mathcal{E}(d)$$
-
-Because all vectors are unit-normalized ($\|\mathbf{e}\|_2 = 1$), cosine similarity reduces to a fast dot product:
-
-$$S_{\text{dense}}(q, d) = \mathbf{e}_q \cdot \mathbf{e}_d$$
-
-This runs against the precomputed corpus matrix $\mathbf{M}_{\text{dense}} \in \mathbb{R}^{582 \times 384}$ using optimized NumPy BLAS matrix-vector operations.
+- **What it does:** Converts your query and all transcripts into numerical embeddings that capture **meaning** rather than just words.
+- **Why it matters:** Finds routines based on general ideas, story premises, and themes. Searching for *"nervous about getting married"* finds wedding anxiety jokes even if the word "nervous" was never said.
+- **Model:** `sentence-transformers/all-MiniLM-L6-v2` (384-dimensional embeddings).
 
 ### 2. Lexical Keyword Search (BM25Okapi)
-
-For keyword matching, transcripts are lemmatized with spaCy and indexed using BM25Okapi:
-
-$$\text{BM25}(q, d) = \sum_{t \in q \cap d} \text{IDF}(t) \cdot \frac{f(t, d) \cdot (k_1 + 1)}{f(t, d) + k_1 \cdot \left(1 - b + b \cdot \frac{|d|}{\text{avgdl}}\right)}$$
-
-- $f(t, d)$: token frequency in document $d$.
-- $|d|$ and $\text{avgdl}$: document length and average corpus length.
-- $k_1 = 1.5$: term frequency saturation parameter.
-- $b = 0.75$: document length penalty.
-- $\text{IDF}(t) = \ln \left( \frac{N - n(t) + 0.5}{n(t) + 0.5} + 1 \right)$ with Robertson-Spärck Jones smoothing.
+- **What it does:** Searches for exact token and phrase matches across lemmatized transcripts.
+- **Why it matters:** BM25 rewards rare, distinctive words (like a comedian's name, a unique punchline, or a specific prop) while ignoring common conversational filler.
+- **Implementation:** `rank-bm25` index over pre-tokenized transcripts.
 
 ### 3. Hybrid Convex Fusion & Reciprocal Rank Fusion
-
-Dense cosine scores reside in $[-1, 1]$ while BM25 scores are unbounded $[0, \infty)$. Spoken-IR normalizes both to $[0, 1]$ via min-max scaling before blending:
-
-$$\bar{S}(d) = \frac{S(d) - \min S}{\max S - \min S + \epsilon}$$
-
-**Convex Score Combination:**
-$$S_{\text{hybrid}}(q, d) = \alpha \cdot \bar{S}_{\text{dense}}(q, d) + (1 - \alpha) \cdot \bar{S}_{\text{BM25}}(q, d)$$
-
-- $\alpha = 1.0$: 100% Dense semantic search.
-- $\alpha = 0.0$: 100% Lexical BM25 search.
-- $\alpha = 0.6$ (default): Balanced hybrid (60% semantic, 40% keyword precision).
-
-**Reciprocal Rank Fusion (RRF):**
-$$\text{RRF}(d) = \sum_{m \in \{\text{dense}, \text{sparse}\}} \frac{1}{60 + r_m(d)}$$
-Combines the ranked lists directly by ordinal position without needing score normalization.
+- **What it does:** Combines semantic scores and keyword scores into one balanced ranking.
+- **Tunable weight ($\alpha$):**
+  - **`1.0`**: 100% Dense semantic search (pure concept matching).
+  - **`0.0`**: 100% Lexical BM25 search (strict keyword matching).
+  - **`0.6` (Default)**: Balanced hybrid (60% semantic discovery + 40% keyword precision).
+- **Reciprocal Rank Fusion (RRF):** Also supports rank-position consensus without needing score normalization.
 
 ### 4. Out-of-Distribution (OOD) Guardrail
-
-Because the index contains exclusively stand-up comedy, queries about unrelated topics (e.g., corporate financial filings or medical textbooks) will produce misleading "top" results. Spoken-IR flags this with an Out-of-Distribution metric based on maximum semantic alignment:
-
-$$\text{OOD}(q) = 1.0 - \max_{d \in \mathcal{D}} S_{\text{dense}}(q, d)$$
-
-- **Strong Match:** $\text{OOD} \le 0.40$ (query fits comedy material well)
-- **Moderate Match:** $0.40 < \text{OOD} \le 0.65$
-- **Weak / Out of Distribution:** $\text{OOD} > 0.65$ (query likely has nothing to do with stand-up comedy)
+- **What it does:** Checks whether your query actually belongs in a stand-up comedy database.
+- **Why it matters:** If you paste something unrelated (like legal contracts or quantum physics), the engine alerts you instead of giving false confidence:
+  - **Strong Match:** Well-aligned with comedy topics.
+  - **Moderate Match:** Partial overlap with comedy themes.
+  - **Weak / Out of Distribution:** The query has little to nothing to do with stand-up comedy.
 
 ---
 
