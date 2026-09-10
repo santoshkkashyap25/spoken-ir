@@ -29,7 +29,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # spaCy English model
 RUN python -m spacy download en_core_web_sm
 
-# NLTK corpora (punkt, stopwords, wordnet, averaged_perceptron_tagger)
+# Pre-cache SentenceTransformer bi-encoder into Docker image
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+
+# NLTK corpora (stopwords)
 ENV NLTK_DATA=/app/nltk_data
 RUN mkdir -p /app/nltk_data \
     && python - <<'EOF'
@@ -42,6 +45,7 @@ EOF
 # Trained model artifacts (small, version-controlled) ship inside the image.
 # Large runtime data (processed CSV + embeddings) are volume-mounted at runtime.
 COPY data/models/        data/models/
+COPY src/                 src/
 COPY ai/                 ai/
 COPY backend/            backend/
 COPY utils/              utils/

@@ -26,7 +26,6 @@ data/processed
 # ─── Dev-only directories (not needed in production containers) ──────────────
 tests/
 scripts/
-src/
 
 # ─── Docker files themselves (no need to copy into the image) ────────────────
 Dockerfile

@@ -14,10 +14,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# Ensure fast local model loading without network latency/timeouts
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-
 APP_NAME = "Spoken-IR — Semantic Search & Information Retrieval Engine"
 
 # ── Project root ───────────────────────────────────────────────────────────────

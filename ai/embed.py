@@ -150,10 +150,30 @@ def load_corpus_bm25_index() -> BM25Okapi:
     return bm25
 
 
-# ── Classical TF-IDF & Topics (Backward compatibility) ─────────────────────────
+# ── Classical TF-IDF (Backward compatibility) ─────────────────────────────────
+
+def _ensure_legacy_pickle_stubs():
+    """Ensure modules referenced by legacy pickle files are importable in any environment."""
+    import sys
+    import types
+    from ai.nlp import identity_tokenizer, identity_analyzer
+
+    if "src.utils.helpers" not in sys.modules:
+        if "src" not in sys.modules:
+            sys.modules["src"] = types.ModuleType("src")
+        if "src.utils" not in sys.modules:
+            sys.modules["src.utils"] = types.ModuleType("src.utils")
+            sys.modules["src"].utils = sys.modules["src.utils"]
+        stub = types.ModuleType("src.utils.helpers")
+        stub.identity_tokenizer = identity_tokenizer
+        stub.identity_analyzer = identity_analyzer
+        sys.modules["src.utils.helpers"] = stub
+        sys.modules["src.utils"].helpers = stub
+
 
 @lru_cache(maxsize=1)
 def load_vectorizer():
+    _ensure_legacy_pickle_stubs()
     path = MODELS_DIR / "tfidf_vectorizer.pkl"
     with open(path, "rb") as f:
         return pickle.load(f)
