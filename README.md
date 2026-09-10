@@ -26,7 +26,6 @@ Spoken-IR is a semantic search and hybrid retrieval engine built over **582 full
   - [Running the App](#running-the-app)
 - [Automated Tests](#automated-tests)
 - [Docker Deployment](#docker-deployment)
-- [License](#license)
 
 ---
 
@@ -171,8 +170,3 @@ docker compose up --build
 
 Access the Streamlit UI on `http://localhost:8501`. It connects to the backend API running on `http://localhost:8000`.
 
----
-
-## License
-
-Distributed under the MIT License. See `LICENSE` for details.
