@@ -4,10 +4,6 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.46+-FF4B4B.svg?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Sentence Transformers](https://img.shields.io/badge/Sentence--Transformers-all--MiniLM--L6--v2-yellow.svg?style=flat-square)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
-[![Tests](https://img.shields.io/badge/Tests-28%20Passed-brightgreen.svg?style=flat-square&logo=pytest&logoColor=white)](https://docs.pytest.org/)
-[![Ingestion](https://img.shields.io/badge/Ingestion-PDF%20%7C%20Markdown%20%7C%20TXT-orange.svg?style=flat-square)](https://pypi.org/project/pypdf/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED.svg?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
 Spoken-IR is a semantic search and hybrid retrieval engine built over **582 full-length stand-up comedy specials** (scraped from [Scraps from the loft](https://scrapsfromtheloft.com/stand-up-comedy-scripts/)). It combines dense neural embeddings (`sentence-transformers/all-MiniLM-L6-v2`) with sparse lexical matching (`BM25Okapi`) to help you find comedy routines, bits, and specials—even when you don't remember the exact punchline or comedian.
 
@@ -47,12 +43,11 @@ Instead of relying solely on exact keyword searches, Spoken-IR lets you query by
 
 ## The Problem: Why Searching Stand-Up Is Hard
 
-Stand-up comedy transcripts are conversational, slang-heavy, and full of storytelling. This creates two distinct search problems:
+Stand-up comedy is conversational, slang-heavy, and narrative-driven, creating two core search challenges:
 
-1. **The Vocabulary Mismatch Problem:** When you recall a joke, you rarely remember the comedian's exact words. If you search for *"fear of getting old"*, a classic lexical search (like BM25 or SQL `LIKE`) will miss a routine where the comedian says *"my knees crack when I stand up and all my friends are having babies"*, because none of the search words appear in the text. Dense embeddings solve this by mapping concepts to nearby points in vector space.
-2. **The Exact-Match Problem:** Conversely, if you remember a very specific, quirky punchline or name (e.g., *"Big Mouth Billy Bass"* or *"Hanalei Bay"*), a dense neural network might dilute that exact term in favor of general vibe. BM25 excels here because it strictly rewards exact token occurrences.
-
-**Hybrid Search** gives you the best of both worlds: dense embeddings find the thematic neighborhood, while BM25 boosts specials containing the exact keywords you remembered.
+- **Vocabulary Mismatch:** Users recall concepts, not verbatim jokes (e.g., searching *"fear of aging"* misses bits about *"creaky knees and buying fiber supplements"*). Dense embeddings solve this via conceptual vector proximity.
+- **Exact Punchline Dilution:** Rare names and punchlines (e.g., *"Big Mouth Billy Bass"*) can be diluted by pure semantic embeddings. BM25 guarantees exact keyword precision.
+- **Hybrid Solution:** Blends dense semantic intent with BM25 keyword scoring to deliver both conceptual discovery and exact punchline accuracy.
 
 ---
 
