@@ -90,7 +90,6 @@ Stand-up comedy is conversational, slang-heavy, and narrative-driven, creating t
 | **BM25 Inverted Index** | `582 docs` | Tokenized & lemmatized vocabulary index |
 | **TF-IDF Matrix** | `(582, 1000)` | Bigram-aware baseline representation |
 | **Preprocessing** | spaCy + NLTK | POS filtering (NOUN, ADJ, VERB, ADV) and stopword removal |
-| **File Upload Support** | `.pdf`, `.md`, `.txt` | Multi-format parsing using `pypdf` |
 
 ---
 
