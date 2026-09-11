@@ -38,13 +38,18 @@ def test_cosine_top_k_picks_closest_first(small_corpus: np.ndarray) -> None:
     query = np.array([[1.0, 0.0, 0.0, 0.0]])
     neighbors = cosine_top_k(query, small_corpus, k=2)
     indices = [n.index for n in neighbors]
-    assert indices == [0, 1]
+    assert set(indices) == {0, 1}
+    assert all(n.score == pytest.approx(1.0) for n in neighbors)
 
 
 def test_cosine_top_k_handles_1d_query(small_corpus: np.ndarray) -> None:
     query = np.array([0.0, 1.0, 0.0, 0.0])
     neighbors = cosine_top_k(query, small_corpus, k=1)
-    assert neighbors[0].index == 2
+    assert len(neighbors) == 1
+    # Both row 2 [0, 1, 0, 0] and row 3 [0, 0.95, 0, 0] point in the exact same
+    # direction along dimension 1 and normalize to unit cosine similarity (1.0).
+    assert neighbors[0].index in (2, 3)
+    assert neighbors[0].score == pytest.approx(1.0)
 
 
 def test_cosine_top_k_zero_query_returns_zeros(small_corpus: np.ndarray) -> None:
