@@ -48,4 +48,4 @@ ehthumbs.db
 *.swo
 
 # Streamlit
-.streamlit/
+.streamlit/secrets.toml
