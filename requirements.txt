@@ -1,40 +1,28 @@
 # Core App Framework
-streamlit==1.46.0
-
-# Web Scraping
-requests==2.32.4
-beautifulsoup4==4.13.4
-lxml==5.4.0
+streamlit>=1.40.0
 
 # Data Handling
-pandas==2.3.0
-numpy==1.24.4
+pandas>=2.2.0
+numpy>=1.26.0
 
 # NLP
-nltk==3.9.1
-spacy==3.8.7
-langdetect==1.0.9
+nltk>=3.9.0
+spacy>=3.8.0
+langdetect>=1.0.9
 
-# ML & Modeling
-scikit-learn==1.7.0
+# ML & Information Retrieval
+scikit-learn>=1.5.0
 sentence-transformers>=3.0.0
 rank-bm25>=0.2.2
 
-# Visualization
-matplotlib==3.10.3
-seaborn==0.13.2
-plotly==6.1.2
-
-# Backend service
-fastapi==0.115.0
-uvicorn[standard]==0.32.0
-httpx==0.27.2
-pydantic==2.9.2
-
-# Other necessary dependencies
+# Backend & Utilities
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+httpx>=0.27.0
+pydantic>=2.9.0
 pypdf>=5.0.0
-tqdm==4.67.1
-joblib==1.5.1
+tqdm>=4.66.0
+joblib>=1.4.0
 
-# --- spaCy English model ---
+# spaCy English linguistic model
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
