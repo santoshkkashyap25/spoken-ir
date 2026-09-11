@@ -19,9 +19,9 @@ pip-delete-this-directory.txt
 # Notebooks
 .ipynb_checkpoints/
 
-# Generated data artifacts
-data/ai/
-data/processed/processed_content_data.csv
+# Generated data artifacts (tracked for zero-setup cloud deployment)
+# data/ai/
+# data/processed/processed_content_data.csv
 
 # Scraped raw artifacts (keep transcripts/, regenerate rest)
 data/raw/scraped_and_cleaned_content_data.csv

@@ -121,13 +121,42 @@ st.caption(
 base = api_base_url()
 backend_alive = check_backend_health(base)
 
-# ── Header Health Status ───────────────────────────────────────────────────────
-if not backend_alive:
-    st.error(
-        f"Backend Service Offline (`{base}`). "
-        "Launch the FastAPI backend service via:\n\n"
-        "```bash\n.venv\\Scripts\\python.exe -m uvicorn backend.main:app --port 8000\n```"
-    )
+
+def _normalize_matches(raw_matches: list) -> list[dict]:
+    """Ensure matches are standard dicts whether returned via REST or in-memory Pydantic objects."""
+    out = []
+    for m in raw_matches:
+        if isinstance(m, dict):
+            out.append(m)
+        elif hasattr(m, "model_dump"):
+            out.append(m.model_dump())
+        elif hasattr(m, "dict"):
+            out.append(m.dict())
+        else:
+            out.append(vars(m))
+    return out
+
+
+def execute_search(query_text: str, k: int, search_mode: str, alpha: float) -> Optional[dict]:
+    """Execute search via FastAPI backend if alive, or direct in-process engine as fallback."""
+    if backend_alive:
+        return post_match(base, query_text, k=k, search_mode=search_mode, alpha=alpha)
+    # Direct in-process fallback for 1-click cloud platforms (Streamlit Community Cloud / Hugging Face)
+    try:
+        from backend.service import get_match
+        return get_match(text=query_text, k=k, search_mode=search_mode, alpha=alpha)
+    except Exception as e:
+        st.error(f"In-process search execution error: {e}")
+        return None
+
+
+# ── Engine Status Indicator (Sidebar) ──────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### Engine Mode")
+    if backend_alive:
+        st.success("FastAPI REST Service (`:8000`)")
+    else:
+        st.info("Direct In-Process Engine (Cloud / Standalone)")
 
 # ── Core Benchmark Tabs ────────────────────────────────────────────────────────
 tab_search, tab_theory = st.tabs(
@@ -235,18 +264,16 @@ with tab_search:
     if st.button("Search Stand-Up Specials", type="primary"):
         if not query_content or len(query_content.strip()) < 20:
             st.warning("Please provide a query passage of at least 20 characters.")
-        elif not backend_alive:
-            st.error("Backend API is unreachable. Ensure the FastAPI service is active on port 8000.")
         else:
             with st.spinner(f"Computing {mode_key.upper()} scores across 582 comedy specials..."):
-                result = post_match(base, query_content, k=k, search_mode=mode_key, alpha=alpha)
+                result = execute_search(query_content, k=k, search_mode=mode_key, alpha=alpha)
 
             if result is None:
-                st.error("Retrieval failed. Inspect server logs for details.")
+                st.error("Retrieval failed. Inspect application logs for details.")
             else:
                 ood = result["ood_score"]
                 strength = result["match_strength"]
-                matches = result["matches"]
+                matches = _normalize_matches(result["matches"])
                 corpus_n = result.get("corpus_size", 582)
 
                 # Confidence Metric Banner
