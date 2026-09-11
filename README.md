@@ -1,5 +1,6 @@
 # Spoken-IR: Stand-Up Comedy Semantic Search & Hybrid Retrieval
 
+[![Live Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://spoken-ir.streamlit.app/)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.46+-FF4B4B.svg?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io/)
@@ -7,10 +8,13 @@
 
 Spoken-IR is a semantic search and hybrid retrieval engine built over **582 full-length stand-up comedy specials** (scraped from [Scraps from the loft](https://scrapsfromtheloft.com/stand-up-comedy-scripts/)). It combines dense neural embeddings (`sentence-transformers/all-MiniLM-L6-v2`) with sparse lexical matching (`BM25Okapi`) to help you find comedy routines, bits, and specials—even when you don't remember the exact punchline or comedian.
 
+👉 **Try the Live App:** **[https://spoken-ir.streamlit.app/](https://spoken-ir.streamlit.app/)**
+
 ---
 
 ## Table of Contents
 
+- [Live Demo](#live-demo)
 - [Overview](#overview)
 - [The Problem: Why Searching Stand-Up Is Hard](#the-problem-why-searching-stand-up-is-hard)
 - [How Search Works](#how-search-works)
@@ -26,6 +30,14 @@ Spoken-IR is a semantic search and hybrid retrieval engine built over **582 full
   - [Running the App](#running-the-app)
 - [Automated Tests](#automated-tests)
 - [Docker Deployment](#docker-deployment)
+
+---
+
+## Live Demo
+
+The application is deployed and publicly accessible on Streamlit Community Cloud:
+
+🔗 **[https://spoken-ir.streamlit.app/](https://spoken-ir.streamlit.app/)**
 
 ---
 
